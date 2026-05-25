@@ -96,6 +96,12 @@ declare global {
       DEFAULT_INPUT_TEMPLATE?: string;
 
       ENABLE_MCP?: string; // enable mcp functionality
+
+      MYSQL_HOST?: string;
+      MYSQL_PORT?: string;
+      MYSQL_USER?: string;
+      MYSQL_PASSWORD?: string;
+      MYSQL_DATABASE?: string;
     }
   }
 }
@@ -120,9 +126,7 @@ function getApiKey(keys?: string) {
   const apiKey = apiKeys[randomIndex];
   if (apiKey) {
     console.log(
-      `[Server Config] using ${randomIndex + 1} of ${
-        apiKeys.length
-      } api key - ${apiKey}`,
+      `[Server Config] using ${randomIndex + 1} of ${apiKeys.length} api keys`,
     );
   }
 
@@ -274,5 +278,11 @@ export const getServerSideConfig = () => {
     visionModels,
     allowedWebDavEndpoints,
     enableMcp: process.env.ENABLE_MCP === "true",
+
+    mysqlHost: process.env.MYSQL_HOST,
+    mysqlPort: Number(process.env.MYSQL_PORT || 3306),
+    mysqlUser: process.env.MYSQL_USER,
+    mysqlPassword: process.env.MYSQL_PASSWORD,
+    mysqlDatabase: process.env.MYSQL_DATABASE,
   };
 };

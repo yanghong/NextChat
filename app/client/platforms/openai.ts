@@ -25,6 +25,7 @@ import {
 } from "@/app/utils/chat";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 import { ModelSize, DalleQuality, DalleStyle } from "@/app/typing";
+import { buildOpenAIImageGenerationPayload } from "./openai-image";
 
 import {
   ChatOptions,
@@ -40,9 +41,10 @@ import { getClientConfig } from "@/app/config/client";
 import {
   getMessageTextContent,
   isVisionModel,
-  isDalle3 as _isDalle3,
+  isImageGenerationModel,
   getTimeoutMSByModel,
 } from "@/app/utils";
+import { applyOpenAIReasoningMode } from "@/app/utils/model-capabilities";
 import { fetch } from "@/app/utils/stream";
 
 export interface OpenAIListModelResponse {
@@ -67,16 +69,17 @@ export interface RequestPayload {
   top_p: number;
   max_tokens?: number;
   max_completion_tokens?: number;
+  reasoning_effort?: string;
 }
 
 export interface DalleRequestPayload {
   model: string;
   prompt: string;
-  response_format: "url" | "b64_json";
-  n: number;
+  response_format?: "url" | "b64_json";
+  n?: number;
   size: ModelSize;
   quality: DalleQuality;
-  style: DalleStyle;
+  style?: DalleStyle;
 }
 
 export class ChatGPTApi implements LLMApi {
@@ -195,26 +198,23 @@ export class ChatGPTApi implements LLMApi {
 
     let requestPayload: RequestPayload | DalleRequestPayload;
 
-    const isDalle3 = _isDalle3(options.config.model);
+    const isImageModel = isImageGenerationModel(options.config.model);
     const isO1OrO3 =
       options.config.model.startsWith("o1") ||
       options.config.model.startsWith("o3") ||
       options.config.model.startsWith("o4-mini");
-    const isGpt5 =  options.config.model.startsWith("gpt-5");
-    if (isDalle3) {
+    const isGpt5 = options.config.model.startsWith("gpt-5");
+    if (isImageModel) {
       const prompt = getMessageTextContent(
         options.messages.slice(-1)?.pop() as any,
       );
-      requestPayload = {
+      requestPayload = buildOpenAIImageGenerationPayload({
         model: options.config.model,
         prompt,
-        // URLs are only valid for 60 minutes after the image has been generated.
-        response_format: "b64_json", // using b64_json, and save image in CacheStorage
-        n: 1,
         size: options.config?.size ?? "1024x1024",
-        quality: options.config?.quality ?? "standard",
+        quality: options.config?.quality,
         style: options.config?.style ?? "vivid",
-      };
+      });
     } else {
       const visionModel = isVisionModel(options.config.model);
       const messages: ChatOptions["messages"] = [];
@@ -231,7 +231,7 @@ export class ChatGPTApi implements LLMApi {
         messages,
         stream: options.config.stream,
         model: modelConfig.model,
-        temperature: (!isO1OrO3 && !isGpt5) ? modelConfig.temperature : 1,
+        temperature: !isO1OrO3 && !isGpt5 ? modelConfig.temperature : 1,
         presence_penalty: !isO1OrO3 ? modelConfig.presence_penalty : 0,
         frequency_penalty: !isO1OrO3 ? modelConfig.frequency_penalty : 0,
         top_p: !isO1OrO3 ? modelConfig.top_p : 1,
@@ -240,11 +240,10 @@ export class ChatGPTApi implements LLMApi {
       };
 
       if (isGpt5) {
-  	// Remove max_tokens if present
-  	delete requestPayload.max_tokens;
-  	// Add max_completion_tokens (or max_completion_tokens if that's what you meant)
-  	requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
-
+        // Remove max_tokens if present
+        delete requestPayload.max_tokens;
+        requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
+        applyOpenAIReasoningMode(requestPayload, modelConfig);
       } else if (isO1OrO3) {
         // by default the o1/o3 models will not attempt to produce output that includes markdown formatting
         // manually add "Formatting re-enabled" developer message to encourage markdown inclusion in model responses
@@ -258,16 +257,15 @@ export class ChatGPTApi implements LLMApi {
         requestPayload["max_completion_tokens"] = modelConfig.max_tokens;
       }
 
-
       // add max_tokens to vision model
-      if (visionModel && !isO1OrO3 && ! isGpt5) {
+      if (visionModel && !isO1OrO3 && !isGpt5) {
         requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
       }
     }
 
     console.log("[Request] openai payload: ", requestPayload);
 
-    const shouldStream = !isDalle3 && !!options.config.stream;
+    const shouldStream = !isImageModel && !!options.config.stream;
     const controller = new AbortController();
     options.onController?.(controller);
 
@@ -293,14 +291,14 @@ export class ChatGPTApi implements LLMApi {
             model?.provider?.providerName === ServiceProvider.Azure,
         );
         chatPath = this.path(
-          (isDalle3 ? Azure.ImagePath : Azure.ChatPath)(
+          (isImageModel ? Azure.ImagePath : Azure.ChatPath)(
             (model?.displayName ?? model?.name) as string,
             useCustomConfig ? useAccessStore.getState().azureApiVersion : "",
           ),
         );
       } else {
         chatPath = this.path(
-          isDalle3 ? OpenaiPath.ImagePath : OpenaiPath.ChatPath,
+          isImageModel ? OpenaiPath.ImagePath : OpenaiPath.ChatPath,
         );
       }
       if (shouldStream) {

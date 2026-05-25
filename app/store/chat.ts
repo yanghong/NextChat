@@ -1,6 +1,6 @@
 import {
   getMessageTextContent,
-  isDalle3,
+  isImageGenerationModel,
   safeLocalStorage,
   trimTopic,
 } from "../utils";
@@ -13,6 +13,10 @@ import type {
   RequestMessage,
 } from "../client/api";
 import { getClientApi } from "../client/api";
+import {
+  fetchRemoteChatSessions,
+  saveRemoteChatSessions,
+} from "../client/chat-sessions";
 import { ChatControllerPool } from "../client/controller";
 import { showToast } from "../components/ui-lib";
 import {
@@ -227,6 +231,7 @@ const DEFAULT_CHAT_STATE = {
   sessions: [createEmptySession()],
   currentSessionIndex: 0,
   lastInput: "",
+  serverSessionsLoaded: false,
 };
 
 export const useChatStore = createPersistStore(
@@ -264,6 +269,7 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: 0,
           sessions: [newSession, ...state.sessions],
         }));
+        void get().saveRemoteSessions();
       },
 
       clearSessions() {
@@ -271,6 +277,7 @@ export const useChatStore = createPersistStore(
           sessions: [createEmptySession()],
           currentSessionIndex: 0,
         }));
+        void get().saveRemoteSessions();
       },
 
       selectSession(index: number) {
@@ -302,6 +309,7 @@ export const useChatStore = createPersistStore(
             sessions: newSessions,
           };
         });
+        void get().saveRemoteSessions();
       },
 
       newSession(mask?: Mask) {
@@ -325,6 +333,7 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: 0,
           sessions: [session].concat(state.sessions),
         }));
+        void get().saveRemoteSessions();
       },
 
       nextSession(delta: number) {
@@ -364,6 +373,7 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: nextIndex,
           sessions,
         }));
+        void get().saveRemoteSessions();
 
         showToast(
           Locale.Home.DeleteToast,
@@ -371,6 +381,7 @@ export const useChatStore = createPersistStore(
             text: Locale.Home.Revert,
             onClick() {
               set(() => restoreState);
+              void get().saveRemoteSessions();
             },
           },
           5000,
@@ -476,6 +487,7 @@ export const useChatStore = createPersistStore(
               botMessage.content = message;
               botMessage.date = new Date().toLocaleString();
               get().onNewMessage(botMessage, session);
+              void get().saveRemoteSessions();
             }
             ChatControllerPool.remove(session.id, botMessage.id);
           },
@@ -665,8 +677,8 @@ export const useChatStore = createPersistStore(
         const config = useAppConfig.getState();
         const session = targetSession;
         const modelConfig = session.mask.modelConfig;
-        // skip summarize when using dalle3?
-        if (isDalle3(modelConfig.model)) {
+        // Image generation responses are binary assets, not useful title context.
+        if (isImageGenerationModel(modelConfig.model)) {
           return;
         }
 
@@ -816,6 +828,39 @@ export const useChatStore = createPersistStore(
         await indexedDBStorage.clear();
         localStorage.clear();
         location.reload();
+      },
+      async loadRemoteSessions() {
+        try {
+          const remoteSessions = await fetchRemoteChatSessions();
+          if (!remoteSessions) return false;
+
+          const sessions =
+            remoteSessions.length > 0 ? remoteSessions : [createEmptySession()];
+          set(() => ({
+            sessions,
+            currentSessionIndex: 0,
+            serverSessionsLoaded: true,
+          }));
+
+          if (remoteSessions.length === 0) {
+            await get().saveRemoteSessions();
+          }
+
+          return true;
+        } catch (error) {
+          console.error("[Chat] failed to load remote sessions", error);
+          return false;
+        }
+      },
+      async saveRemoteSessions() {
+        if (!get().serverSessionsLoaded) return false;
+
+        try {
+          return await saveRemoteChatSessions(get().sessions);
+        } catch (error) {
+          console.error("[Chat] failed to save remote sessions", error);
+          return false;
+        }
       },
       setLastInput(lastInput: string) {
         set({

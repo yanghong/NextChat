@@ -22,7 +22,7 @@ export async function handle(
     return NextResponse.json({ body: "OK" }, { status: 200 });
   }
 
-  const authResult = auth(req, ModelProvider.XAI);
+  const authResult = await auth(req, ModelProvider.XAI);
   if (authResult.error) {
     return NextResponse.json(authResult, {
       status: 401,

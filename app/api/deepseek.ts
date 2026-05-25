@@ -22,7 +22,7 @@ export async function handle(
     return NextResponse.json({ body: "OK" }, { status: 200 });
   }
 
-  const authResult = auth(req, ModelProvider.DeepSeek);
+  const authResult = await auth(req, ModelProvider.DeepSeek);
   if (authResult.error) {
     return NextResponse.json(authResult, {
       status: 401,

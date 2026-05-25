@@ -21,6 +21,7 @@ import {
   Route,
   Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { SideBar } from "./sidebar";
 import { useAppConfig } from "../store/config";
@@ -30,6 +31,8 @@ import { type ClientApi, getClientApi } from "../client/api";
 import { useAccessStore } from "../store";
 import clsx from "clsx";
 import { initializeMcpSystem, isMcpEnabled } from "../mcp/actions";
+import { getCurrentUser } from "../client/user";
+import { useChatStore } from "../store/chat";
 
 export function Loading(props: { noLogo?: boolean }) {
   return (
@@ -160,6 +163,9 @@ export function WindowContent(props: { children: React.ReactNode }) {
 function Screen() {
   const config = useAppConfig();
   const location = useLocation();
+  const navigate = useNavigate();
+  const loadRemoteSessions = useChatStore((state) => state.loadRemoteSessions);
+  const [authChecked, setAuthChecked] = useState(false);
   const isArtifact = location.pathname.includes(Path.Artifacts);
   const isHome = location.pathname === Path.Home;
   const isAuth = location.pathname === Path.Auth;
@@ -174,6 +180,45 @@ function Screen() {
     loadAsyncGoogleFont();
   }, []);
 
+  useEffect(() => {
+    if (getClientConfig()?.isApp || getClientConfig()?.buildMode === "export") {
+      setAuthChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const user = await getCurrentUser();
+      if (cancelled) return;
+
+      if (!user) {
+        setAuthChecked(true);
+        if (!isAuth) {
+          navigate(Path.Auth);
+        }
+        return;
+      }
+
+      await loadRemoteSessions();
+      if (cancelled) return;
+      setAuthChecked(true);
+      if (isAuth) {
+        navigate(Path.Chat);
+      }
+    })().catch((error) => {
+      console.error("[Auth] failed to check current user", error);
+      setAuthChecked(true);
+      if (!isAuth) {
+        navigate(Path.Auth);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuth, loadRemoteSessions, navigate]);
+
   if (isArtifact) {
     return (
       <Routes>
@@ -181,6 +226,11 @@ function Screen() {
       </Routes>
     );
   }
+
+  if (!authChecked) {
+    return <Loading />;
+  }
+
   const renderContent = () => {
     if (isAuth) return <AuthPage />;
     if (isSd) return <Sd />;

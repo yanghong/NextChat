@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { getServerSideConfig } from "../config/server";
 import md5 from "spark-md5";
 import { ACCESS_CODE_PREFIX, ModelProvider } from "../constant";
+import { AUTH_COOKIE_NAME } from "../lib/server/auth";
+import { getUserBySessionToken } from "../lib/server/user-repository";
 
 function getIP(req: NextRequest) {
   let ip = req.ip ?? req.headers.get("x-real-ip");
@@ -24,7 +26,33 @@ function parseApiKey(bearToken: string) {
   };
 }
 
-export function auth(req: NextRequest, modelProvider: ModelProvider) {
+export function shouldAllowModelProxyRequest(options: {
+  needCode: boolean;
+  accessCodeValid: boolean;
+  hasApiKey: boolean;
+  hasUserSession: boolean;
+}) {
+  return (
+    !options.needCode ||
+    options.accessCodeValid ||
+    options.hasApiKey ||
+    options.hasUserSession
+  );
+}
+
+async function hasValidUserSession(req: NextRequest) {
+  const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
+  if (!token) return false;
+
+  try {
+    return !!(await getUserBySessionToken(token));
+  } catch (error) {
+    console.error("[Auth] failed to verify user session", error);
+    return false;
+  }
+}
+
+export async function auth(req: NextRequest, modelProvider: ModelProvider) {
   const authToken = req.headers.get("Authorization") ?? "";
 
   // check if it is openai api key or user token
@@ -39,10 +67,23 @@ export function auth(req: NextRequest, modelProvider: ModelProvider) {
   console.log("[User IP] ", getIP(req));
   console.log("[Time] ", new Date().toLocaleString());
 
-  if (serverConfig.needCode && !serverConfig.codes.has(hashedCode) && !apiKey) {
+  const hasUserSession = await hasValidUserSession(req);
+  const accessCodeValid = serverConfig.codes.has(hashedCode);
+
+  if (
+    !shouldAllowModelProxyRequest({
+      needCode: serverConfig.needCode,
+      accessCodeValid,
+      hasApiKey: !!apiKey,
+      hasUserSession,
+    })
+  ) {
     return {
       error: true,
-      msg: !accessCode ? "empty access code" : "wrong access code",
+      msg:
+        !accessCode && !hasUserSession
+          ? "empty access code"
+          : "wrong access code",
     };
   }
 

@@ -14,8 +14,8 @@ const en: LocaleType = {
      \\ 2️⃣ Want to use your own OpenAI resources? [Click here](/#/settings) to change settings ⚙️`
       : `😆 Oops, there's an issue. Let's fix it:
      \ 1️⃣ New here? [Click to start chatting now 🚀](${SAAS_CHAT_UTM_URL})
-     \ 2️⃣ Using a private setup? [Click here](/#/auth) to enter your key 🔑
-     \ 3️⃣ Want to use your own OpenAI resources? [Click here](/#/settings) to change settings ⚙️
+     \ 2️⃣ Using a private setup? [Click here](/#/settings) to configure endpoint and API key 🔑
+     \ 3️⃣ Want to use your own OpenAI resources? You can also update the endpoint in settings ⚙️
      `,
   },
   Auth: {
@@ -314,6 +314,13 @@ const en: LocaleType = {
       NoAccess: "Enter API Key to check balance",
     },
     Access: {
+      PrivateOpenAI: {
+        Title: "Private Deployment API",
+        SubTitle:
+          "For OpenAI-compatible endpoints. Filling this in enables custom OpenAI service automatically.",
+        Enable: "Enable",
+        Enabled: "Enabled",
+      },
       SaasStart: {
         Title: "Use NextChat AI",
         Label: " (Most Cost-Effective Option)",

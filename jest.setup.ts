@@ -1,8 +1,7 @@
 // Learn more: https://github.com/testing-library/jest-dom
 import "@testing-library/jest-dom";
-import { jest } from "@jest/globals";
 
-global.fetch = jest.fn(() =>
+global.fetch = (() =>
   Promise.resolve({
     ok: true,
     status: 200,
@@ -18,5 +17,4 @@ global.fetch = jest.fn(() =>
     blob: () => Promise.resolve(new Blob()),
     formData: () => Promise.resolve(new FormData()),
     text: () => Promise.resolve(""),
-  } as Response),
-);
+  } as Response)) as typeof fetch;

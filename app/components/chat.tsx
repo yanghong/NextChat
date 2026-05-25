@@ -67,11 +67,14 @@ import {
   copyToClipboard,
   getMessageImages,
   getMessageTextContent,
+  getImageModelQualities,
   isDalle3,
+  isImageGenerationModel,
   isVisionModel,
   safeLocalStorage,
   getModelSizes,
   supportsCustomSize,
+  supportsOpenAIReasoningMode,
   useMobileScreen,
   selectOrCopy,
   showPlugins,
@@ -559,12 +562,27 @@ export function ChatActions(props: {
   const [showSizeSelector, setShowSizeSelector] = useState(false);
   const [showQualitySelector, setShowQualitySelector] = useState(false);
   const [showStyleSelector, setShowStyleSelector] = useState(false);
+  const [showReasoningModeSelector, setShowReasoningModeSelector] =
+    useState(false);
   const modelSizes = getModelSizes(currentModel);
-  const dalle3Qualitys: DalleQuality[] = ["standard", "hd"];
+  const imageModelQualities = getImageModelQualities(currentModel);
   const dalle3Styles: DalleStyle[] = ["vivid", "natural"];
+  const currentReasoningMode =
+    session.mask.modelConfig?.reasoningMode ?? "instant";
+  const reasoningModeItems = [
+    { title: "Instant", value: "instant" },
+    { title: "Thinking", value: "thinking" },
+  ];
+  const showReasoningMode = supportsOpenAIReasoningMode(
+    currentModel,
+    currentProviderName,
+  );
   const currentSize =
     session.mask.modelConfig?.size ?? ("1024x1024" as ModelSize);
-  const currentQuality = session.mask.modelConfig?.quality ?? "standard";
+  const savedQuality = session.mask.modelConfig?.quality ?? "standard";
+  const currentQuality = imageModelQualities.includes(savedQuality)
+    ? savedQuality
+    : imageModelQualities[0] ?? "standard";
   const currentStyle = session.mask.modelConfig?.style ?? "vivid";
 
   const isMobileScreen = useMobileScreen();
@@ -714,6 +732,31 @@ export function ChatActions(props: {
           />
         )}
 
+        {showReasoningMode && (
+          <ChatAction
+            onClick={() => setShowReasoningModeSelector(true)}
+            text={currentReasoningMode === "thinking" ? "Thinking" : "Instant"}
+            icon={<BrainIcon />}
+          />
+        )}
+
+        {showReasoningModeSelector && (
+          <Selector
+            defaultSelectedValue={currentReasoningMode}
+            items={reasoningModeItems}
+            onClose={() => setShowReasoningModeSelector(false)}
+            onSelection={(s) => {
+              if (s.length === 0) return;
+              const reasoningMode = s[0] as "instant" | "thinking";
+              chatStore.updateTargetSession(session, (session) => {
+                session.mask.modelConfig.reasoningMode = reasoningMode;
+                session.mask.syncGlobalConfig = false;
+              });
+              showToast(reasoningMode === "thinking" ? "Thinking" : "Instant");
+            }}
+          />
+        )}
+
         {supportsCustomSize(currentModel) && (
           <ChatAction
             onClick={() => setShowSizeSelector(true)}
@@ -741,18 +784,19 @@ export function ChatActions(props: {
           />
         )}
 
-        {isDalle3(currentModel) && (
-          <ChatAction
-            onClick={() => setShowQualitySelector(true)}
-            text={currentQuality}
-            icon={<QualityIcon />}
-          />
-        )}
+        {isImageGenerationModel(currentModel) &&
+          imageModelQualities.length > 0 && (
+            <ChatAction
+              onClick={() => setShowQualitySelector(true)}
+              text={currentQuality}
+              icon={<QualityIcon />}
+            />
+          )}
 
         {showQualitySelector && (
           <Selector
             defaultSelectedValue={currentQuality}
-            items={dalle3Qualitys.map((m) => ({
+            items={imageModelQualities.map((m) => ({
               title: m,
               value: m,
             }))}

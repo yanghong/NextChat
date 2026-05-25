@@ -13,8 +13,8 @@ const cn = {
        \\ 2️⃣ 如果你想消耗自己的 OpenAI 资源，点击[这里](/#/settings)修改设置 ⚙️`
       : `😆 对话遇到了一些问题，不用慌:
        \ 1️⃣ 想要零配置开箱即用，[点击这里立刻开启对话 🚀](${SAAS_CHAT_UTM_URL})
-       \ 2️⃣ 如果你正在使用私有部署版本，点击[这里](/#/auth)输入访问秘钥 🔑
-       \ 3️⃣ 如果你想消耗自己的 OpenAI 资源，点击[这里](/#/settings)修改设置 ⚙️
+       \ 2️⃣ 如果你正在使用私有部署版本，点击[这里](/#/settings)配置接口地址和 API Key 🔑
+       \ 3️⃣ 如果你想消耗自己的 OpenAI 资源，也可以在设置里修改接口配置 ⚙️
        `,
   },
   Auth: {
@@ -311,6 +311,13 @@ const cn = {
     },
 
     Access: {
+      PrivateOpenAI: {
+        Title: "私有部署接口配置",
+        SubTitle:
+          "用于 OpenAI 兼容接口；填写后会自动启用自定义 OpenAI 服务",
+        Enable: "启用",
+        Enabled: "已启用",
+      },
       SaasStart: {
         Title: "使用 NextChat AI",
         Label: "（性价比最高的方案）",

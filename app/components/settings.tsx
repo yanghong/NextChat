@@ -777,6 +777,69 @@ export function Settings() {
     </>
   );
 
+  const privateOpenAIConfigComponent = !accessStore.hideUserApiKey && (
+    <List>
+      <ListItem
+        title={Locale.Settings.Access.PrivateOpenAI.Title}
+        subTitle={Locale.Settings.Access.PrivateOpenAI.SubTitle}
+      >
+        <IconButton
+          text={
+            accessStore.useCustomConfig &&
+            accessStore.provider === ServiceProvider.OpenAI
+              ? Locale.Settings.Access.PrivateOpenAI.Enabled
+              : Locale.Settings.Access.PrivateOpenAI.Enable
+          }
+          icon={<ConfigIcon />}
+          onClick={() =>
+            accessStore.update((access) => {
+              access.useCustomConfig = true;
+              access.provider = ServiceProvider.OpenAI;
+            })
+          }
+          bordered
+        />
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.Endpoint.Title}
+        subTitle={Locale.Settings.Access.OpenAI.Endpoint.SubTitle}
+      >
+        <input
+          aria-label={Locale.Settings.Access.OpenAI.Endpoint.Title}
+          type="text"
+          value={accessStore.openaiUrl}
+          placeholder={OPENAI_BASE_URL}
+          onChange={(e) =>
+            accessStore.update((access) => {
+              access.useCustomConfig = true;
+              access.provider = ServiceProvider.OpenAI;
+              access.openaiUrl = e.currentTarget.value;
+            })
+          }
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.OpenAI.ApiKey.Title}
+        subTitle={Locale.Settings.Access.OpenAI.ApiKey.SubTitle}
+      >
+        <PasswordInput
+          aria={Locale.Settings.ShowPassword}
+          aria-label={Locale.Settings.Access.OpenAI.ApiKey.Title}
+          value={accessStore.openaiApiKey}
+          type="text"
+          placeholder={Locale.Settings.Access.OpenAI.ApiKey.Placeholder}
+          onChange={(e) => {
+            accessStore.update((access) => {
+              access.useCustomConfig = true;
+              access.provider = ServiceProvider.OpenAI;
+              access.openaiApiKey = e.currentTarget.value;
+            });
+          }}
+        />
+      </ListItem>
+    </List>
+  );
+
   const azureConfigComponent = accessStore.provider ===
     ServiceProvider.Azure && (
     <>
@@ -1524,6 +1587,8 @@ export function Settings() {
         </div>
       </div>
       <div className={styles["settings"]}>
+        {privateOpenAIConfigComponent}
+
         <List>
           <ListItem title={Locale.Settings.Avatar}>
             <Popover
@@ -1848,7 +1913,9 @@ export function Settings() {
                     </Select>
                   </ListItem>
 
-                  {openAIConfigComponent}
+                  {accessStore.provider === ServiceProvider.OpenAI
+                    ? null
+                    : openAIConfigComponent}
                   {azureConfigComponent}
                   {googleConfigComponent}
                   {anthropicConfigComponent}
