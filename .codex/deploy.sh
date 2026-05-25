@@ -80,13 +80,18 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 mkdir -p "$DEPLOY_DIR"
+git config --global --add safe.directory "$DEPLOY_DIR" >/dev/null 2>&1 || true
 cd "$DEPLOY_DIR"
 
 if [ ! -d .git ]; then
-  git init
+  git init -b "$DEPLOY_BRANCH" 2>/dev/null || git init
   git remote add origin "$REPO_URL"
 else
-  git remote set-url origin "$REPO_URL"
+  if git remote get-url origin >/dev/null 2>&1; then
+    git remote set-url origin "$REPO_URL"
+  else
+    git remote add origin "$REPO_URL"
+  fi
 fi
 
 git fetch --depth=1 origin "$DEPLOY_BRANCH"
