@@ -52,6 +52,14 @@ typings
 
 # local env files
 .env*.local
+.env.runtime
+.env.runtime.*
+
+# production host runtime files
+/certbot
+/letsencrypt
+/nginx
+/.git
 
 # Next.js build output
 .next
