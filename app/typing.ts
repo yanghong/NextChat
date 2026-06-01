@@ -12,6 +12,7 @@ export type DalleSize = "1024x1024" | "1792x1024" | "1024x1792";
 export type DalleQuality = "low" | "standard" | "hd";
 export type DalleStyle = "vivid" | "natural";
 export type GptReasoningMode = "instant" | "thinking";
+export type WebSearchContextSize = "low" | "medium" | "high";
 
 export type ModelSize =
   | "1024x1024"

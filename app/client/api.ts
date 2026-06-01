@@ -12,7 +12,7 @@ import {
   useChatStore,
 } from "../store";
 import { ChatGPTApi, DalleRequestPayload } from "./platforms/openai";
-import { GptReasoningMode } from "../typing";
+import { GptReasoningMode, WebSearchContextSize } from "../typing";
 import { GeminiProApi } from "./platforms/google";
 import { ClaudeApi } from "./platforms/anthropic";
 import { ErnieApi } from "./platforms/baidu";
@@ -64,6 +64,8 @@ export interface LLMConfig {
   quality?: DalleRequestPayload["quality"];
   style?: DalleRequestPayload["style"];
   reasoningMode?: GptReasoningMode;
+  webSearch?: boolean;
+  webSearchContextSize?: WebSearchContextSize;
 }
 
 export interface SpeechOptions {

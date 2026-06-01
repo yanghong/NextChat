@@ -44,7 +44,10 @@ import {
   isImageGenerationModel,
   getTimeoutMSByModel,
 } from "@/app/utils";
-import { applyOpenAIReasoningMode } from "@/app/utils/model-capabilities";
+import {
+  applyOpenAIReasoningMode,
+  applyOpenAIWebSearchTool,
+} from "@/app/utils/model-capabilities";
 import { fetch } from "@/app/utils/stream";
 
 export interface OpenAIListModelResponse {
@@ -70,6 +73,8 @@ export interface RequestPayload {
   max_tokens?: number;
   max_completion_tokens?: number;
   reasoning_effort?: string;
+  tools?: unknown[];
+  tool_choice?: { type: string };
 }
 
 export interface DalleRequestPayload {
@@ -260,6 +265,10 @@ export class ChatGPTApi implements LLMApi {
       // add max_tokens to vision model
       if (visionModel && !isO1OrO3 && !isGpt5) {
         requestPayload["max_tokens"] = Math.max(modelConfig.max_tokens, 4000);
+      }
+
+      if (modelConfig.providerName !== ServiceProvider.Azure) {
+        applyOpenAIWebSearchTool(requestPayload, modelConfig);
       }
     }
 

@@ -14,6 +14,7 @@ export {
   isDalle3,
   isGptImageModel,
   isImageGenerationModel,
+  supportsOpenAIWebSearch,
   supportsOpenAIReasoningMode,
   supportsCustomSize,
 } from "./utils/model-capabilities";

@@ -4,6 +4,7 @@ import {
   DalleStyle,
   GptReasoningMode,
   ModelSize,
+  WebSearchContextSize,
 } from "../typing";
 import { getClientConfig } from "../config/client";
 import {
@@ -87,6 +88,8 @@ export const DEFAULT_CONFIG = {
     quality: "low" as DalleQuality,
     style: "vivid" as DalleStyle,
     reasoningMode: "instant" as GptReasoningMode,
+    webSearch: false,
+    webSearchContextSize: "low" as WebSearchContextSize,
   },
 
   ttsConfig: {
@@ -201,7 +204,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.2,
+    version: 4.3,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -264,6 +267,12 @@ export const useAppConfig = createPersistStore(
       if (version < 4.2) {
         state.modelConfig.reasoningMode =
           DEFAULT_CONFIG.modelConfig.reasoningMode;
+      }
+
+      if (version < 4.3) {
+        state.modelConfig.webSearch = DEFAULT_CONFIG.modelConfig.webSearch;
+        state.modelConfig.webSearchContextSize =
+          DEFAULT_CONFIG.modelConfig.webSearchContextSize;
       }
 
       return state as any;

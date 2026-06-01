@@ -75,6 +75,7 @@ import {
   getModelSizes,
   supportsCustomSize,
   supportsOpenAIReasoningMode,
+  supportsOpenAIWebSearch,
   useMobileScreen,
   selectOrCopy,
   showPlugins,
@@ -85,7 +86,7 @@ import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
 import dynamic from "next/dynamic";
 
 import { ChatControllerPool } from "../client/controller";
-import { DalleQuality, DalleStyle, ModelSize } from "../typing";
+import { DalleStyle, ModelSize } from "../typing";
 import { Prompt, usePromptStore } from "../store/prompt";
 import Locale from "../locales";
 
@@ -577,6 +578,11 @@ export function ChatActions(props: {
     currentModel,
     currentProviderName,
   );
+  const showWebSearch = supportsOpenAIWebSearch(
+    currentModel,
+    currentProviderName,
+  );
+  const webSearchEnabled = session.mask.modelConfig?.webSearch ?? false;
   const currentSize =
     session.mask.modelConfig?.size ?? ("1024x1024" as ModelSize);
   const savedQuality = session.mask.modelConfig?.quality ?? "standard";
@@ -754,6 +760,22 @@ export function ChatActions(props: {
               });
               showToast(reasoningMode === "thinking" ? "Thinking" : "Instant");
             }}
+          />
+        )}
+
+        {showWebSearch && (
+          <ChatAction
+            onClick={() => {
+              const nextWebSearch = !webSearchEnabled;
+              chatStore.updateTargetSession(session, (session) => {
+                session.mask.modelConfig.webSearch = nextWebSearch;
+                session.mask.modelConfig.webSearchContextSize = "low";
+                session.mask.syncGlobalConfig = false;
+              });
+              showToast(nextWebSearch ? "Search On" : "Search Off");
+            }}
+            text={webSearchEnabled ? "Search On" : "Search"}
+            icon={<McpToolIcon />}
           />
         )}
 

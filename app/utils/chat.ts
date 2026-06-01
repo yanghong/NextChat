@@ -11,6 +11,7 @@ import {
 } from "@fortaine/fetch-event-source";
 import { prettyObject } from "./format";
 import { fetch as tauriFetch } from "./stream";
+import { mergeChatTools } from "./model-capabilities";
 
 export function compressImage(file: Blob, maxSize: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -307,7 +308,7 @@ export function stream(
       method: "POST",
       body: JSON.stringify({
         ...requestPayload,
-        tools: tools && tools.length ? tools : undefined,
+        tools: mergeChatTools(requestPayload.tools, tools),
       }),
       signal: controller.signal,
       headers,
@@ -533,7 +534,7 @@ export function streamWithThink(
       method: "POST",
       body: JSON.stringify({
         ...requestPayload,
-        tools: tools && tools.length ? tools : undefined,
+        tools: mergeChatTools(requestPayload.tools, tools),
       }),
       signal: controller.signal,
       headers,
