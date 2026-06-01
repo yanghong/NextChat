@@ -4,6 +4,10 @@ import md5 from "spark-md5";
 import { ACCESS_CODE_PREFIX, ModelProvider } from "../constant";
 import { AUTH_COOKIE_NAME } from "../lib/server/auth";
 import { getUserBySessionToken } from "../lib/server/user-repository";
+import {
+  getUserApiKey,
+  OPENAI_USER_API_KEY_PROVIDER,
+} from "../lib/server/user-api-key-repository";
 
 function getIP(req: NextRequest) {
   let ip = req.ip ?? req.headers.get("x-real-ip");
@@ -40,15 +44,27 @@ export function shouldAllowModelProxyRequest(options: {
   );
 }
 
-async function hasValidUserSession(req: NextRequest) {
+export function shouldRequireBoundOpenAIKey(options: {
+  modelProvider: ModelProvider;
+  hasUserSession: boolean;
+  hasBoundUserApiKey: boolean;
+}) {
+  return (
+    options.modelProvider === ModelProvider.GPT &&
+    options.hasUserSession &&
+    !options.hasBoundUserApiKey
+  );
+}
+
+async function getValidUserSession(req: NextRequest) {
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
-  if (!token) return false;
+  if (!token) return null;
 
   try {
-    return !!(await getUserBySessionToken(token));
+    return await getUserBySessionToken(token);
   } catch (error) {
     console.error("[Auth] failed to verify user session", error);
-    return false;
+    return null;
   }
 }
 
@@ -67,7 +83,8 @@ export async function auth(req: NextRequest, modelProvider: ModelProvider) {
   console.log("[User IP] ", getIP(req));
   console.log("[Time] ", new Date().toLocaleString());
 
-  const hasUserSession = await hasValidUserSession(req);
+  const user = await getValidUserSession(req);
+  const hasUserSession = !!user;
   const accessCodeValid = serverConfig.codes.has(hashedCode);
 
   if (
@@ -91,6 +108,32 @@ export async function auth(req: NextRequest, modelProvider: ModelProvider) {
     return {
       error: true,
       msg: "you are not allowed to access with your own api key",
+    };
+  }
+
+  if (modelProvider === ModelProvider.GPT && user) {
+    const userApiKey = await getUserApiKey(
+      user.id,
+      OPENAI_USER_API_KEY_PROVIDER,
+    );
+
+    if (
+      shouldRequireBoundOpenAIKey({
+        modelProvider,
+        hasUserSession,
+        hasBoundUserApiKey: !!userApiKey,
+      })
+    ) {
+      return {
+        error: true,
+        msg: "请先在设置中填写 API Key",
+      };
+    }
+
+    console.log("[Auth] use bound user api key");
+    req.headers.set("Authorization", `Bearer ${userApiKey}`);
+    return {
+      error: false,
     };
   }
 
