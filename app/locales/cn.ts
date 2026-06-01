@@ -313,8 +313,7 @@ const cn = {
     Access: {
       PrivateOpenAI: {
         Title: "私有部署接口配置",
-        SubTitle:
-          "用于 OpenAI 兼容接口；填写后会自动启用自定义 OpenAI 服务",
+        SubTitle: "用于 OpenAI 兼容接口；填写后会自动启用自定义 OpenAI 服务",
         Enable: "启用",
         Enabled: "已启用",
       },
@@ -329,6 +328,17 @@ const cn = {
         Title: "访问密码",
         SubTitle: "管理员已开启加密访问",
         Placeholder: "请输入访问密码",
+      },
+      UserOpenAIKey: {
+        Title: "OpenAI API Key",
+        SubTitle: "登录后需保存你的 API Key，聊天请求将使用这把 Key",
+        Configured: "已设置",
+        Missing: "未设置",
+        Placeholder: "请输入 API Key",
+        Save: "保存",
+        Delete: "删除",
+        Saved: "API Key 已保存",
+        Deleted: "API Key 已删除",
       },
       CustomEndpoint: {
         Title: "自定义接口",

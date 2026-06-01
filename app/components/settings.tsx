@@ -89,6 +89,11 @@ import { useMaskStore } from "../store/mask";
 import { ProviderType } from "../utils/cloud";
 import { TTSConfigList } from "./tts-config";
 import { RealtimeConfigList } from "./realtime-chat/realtime-config";
+import {
+  deleteUserOpenAIKey,
+  getUserApiKeyState,
+  saveUserOpenAIKey,
+} from "../client/user-api-key";
 
 function EditPromptModal(props: { id: string; onClose: () => void }) {
   const promptStore = usePromptStore();
@@ -645,6 +650,9 @@ export function Settings() {
   const builtinCount = SearchService.count.builtin;
   const customCount = promptStore.getUserPrompts().length ?? 0;
   const [shouldShowPromptModal, setShowPromptModal] = useState(false);
+  const [userOpenAIKeyInput, setUserOpenAIKeyInput] = useState("");
+  const [hasUserOpenAIKey, setHasUserOpenAIKey] = useState(false);
+  const [loadingUserOpenAIKey, setLoadingUserOpenAIKey] = useState(false);
 
   const showUsage = accessStore.isAuthorized();
   useEffect(() => {
@@ -652,6 +660,14 @@ export function Settings() {
     checkUpdate();
     showUsage && checkUsage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setLoadingUserOpenAIKey(true);
+    getUserApiKeyState()
+      .then((state) => setHasUserOpenAIKey(state.hasOpenAIKey))
+      .catch(() => setHasUserOpenAIKey(false))
+      .finally(() => setLoadingUserOpenAIKey(false));
   }, []);
 
   useEffect(() => {
@@ -689,6 +705,57 @@ export function Settings() {
           accessStore.update(
             (access) => (access.accessCode = e.currentTarget.value),
           );
+        }}
+      />
+    </ListItem>
+  );
+
+  const userOpenAIKeyComponent = (
+    <ListItem
+      title={Locale.Settings.Access.UserOpenAIKey.Title}
+      subTitle={`${Locale.Settings.Access.UserOpenAIKey.SubTitle} (${
+        hasUserOpenAIKey
+          ? Locale.Settings.Access.UserOpenAIKey.Configured
+          : Locale.Settings.Access.UserOpenAIKey.Missing
+      })`}
+    >
+      <PasswordInput
+        aria={Locale.Settings.ShowPassword}
+        aria-label={Locale.Settings.Access.UserOpenAIKey.Title}
+        value={userOpenAIKeyInput}
+        type="text"
+        placeholder={Locale.Settings.Access.UserOpenAIKey.Placeholder}
+        onChange={(e) => setUserOpenAIKeyInput(e.currentTarget.value)}
+      />
+      <IconButton
+        text={Locale.Settings.Access.UserOpenAIKey.Save}
+        icon={<ConfirmIcon />}
+        disabled={loadingUserOpenAIKey || !userOpenAIKeyInput.trim()}
+        onClick={() => {
+          setLoadingUserOpenAIKey(true);
+          saveUserOpenAIKey(userOpenAIKeyInput)
+            .then((state) => {
+              setHasUserOpenAIKey(state.hasOpenAIKey);
+              setUserOpenAIKeyInput("");
+              showToast(Locale.Settings.Access.UserOpenAIKey.Saved);
+            })
+            .catch((error: Error) => showToast(error.message))
+            .finally(() => setLoadingUserOpenAIKey(false));
+        }}
+      />
+      <IconButton
+        text={Locale.Settings.Access.UserOpenAIKey.Delete}
+        icon={<ClearIcon />}
+        disabled={loadingUserOpenAIKey || !hasUserOpenAIKey}
+        onClick={() => {
+          setLoadingUserOpenAIKey(true);
+          deleteUserOpenAIKey()
+            .then((state) => {
+              setHasUserOpenAIKey(state.hasOpenAIKey);
+              showToast(Locale.Settings.Access.UserOpenAIKey.Deleted);
+            })
+            .catch((error: Error) => showToast(error.message))
+            .finally(() => setLoadingUserOpenAIKey(false));
         }}
       />
     </ListItem>
@@ -1522,44 +1589,44 @@ export function Settings() {
     </>
   );
 
-  const ai302ConfigComponent = accessStore.provider === ServiceProvider["302.AI"] && (
+  const ai302ConfigComponent = accessStore.provider ===
+    ServiceProvider["302.AI"] && (
     <>
       <ListItem
-          title={Locale.Settings.Access.AI302.Endpoint.Title}
-          subTitle={
-            Locale.Settings.Access.AI302.Endpoint.SubTitle +
-            AI302.ExampleEndpoint
+        title={Locale.Settings.Access.AI302.Endpoint.Title}
+        subTitle={
+          Locale.Settings.Access.AI302.Endpoint.SubTitle + AI302.ExampleEndpoint
+        }
+      >
+        <input
+          aria-label={Locale.Settings.Access.AI302.Endpoint.Title}
+          type="text"
+          value={accessStore.ai302Url}
+          placeholder={AI302.ExampleEndpoint}
+          onChange={(e) =>
+            accessStore.update(
+              (access) => (access.ai302Url = e.currentTarget.value),
+            )
           }
-        >
-          <input
-            aria-label={Locale.Settings.Access.AI302.Endpoint.Title}
-            type="text"
-            value={accessStore.ai302Url}
-            placeholder={AI302.ExampleEndpoint}
-            onChange={(e) =>
-              accessStore.update(
-                (access) => (access.ai302Url = e.currentTarget.value),
-              )
-            }
-          ></input>
-        </ListItem>
-        <ListItem
-          title={Locale.Settings.Access.AI302.ApiKey.Title}
-          subTitle={Locale.Settings.Access.AI302.ApiKey.SubTitle}
-        >
-          <PasswordInput
-            aria-label={Locale.Settings.Access.AI302.ApiKey.Title}
-            value={accessStore.ai302ApiKey}
-            type="text"
-            placeholder={Locale.Settings.Access.AI302.ApiKey.Placeholder}
-            onChange={(e) => {
-              accessStore.update(
-                (access) => (access.ai302ApiKey = e.currentTarget.value),
-              );
-            }}
-          />
-        </ListItem>
-      </>
+        ></input>
+      </ListItem>
+      <ListItem
+        title={Locale.Settings.Access.AI302.ApiKey.Title}
+        subTitle={Locale.Settings.Access.AI302.ApiKey.SubTitle}
+      >
+        <PasswordInput
+          aria-label={Locale.Settings.Access.AI302.ApiKey.Title}
+          value={accessStore.ai302ApiKey}
+          type="text"
+          placeholder={Locale.Settings.Access.AI302.ApiKey.Placeholder}
+          onChange={(e) => {
+            accessStore.update(
+              (access) => (access.ai302ApiKey = e.currentTarget.value),
+            );
+          }}
+        />
+      </ListItem>
+    </>
   );
 
   return (
@@ -1883,6 +1950,7 @@ export function Settings() {
         <List id={SlotID.CustomModel}>
           {saasStartComponent}
           {accessCodeComponent}
+          {userOpenAIKeyComponent}
 
           {!accessStore.hideUserApiKey && (
             <>

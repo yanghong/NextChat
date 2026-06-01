@@ -334,6 +334,18 @@ const en: LocaleType = {
         SubTitle: "Access control Enabled",
         Placeholder: "Enter Code",
       },
+      UserOpenAIKey: {
+        Title: "OpenAI API Key",
+        SubTitle:
+          "Save your API key after login. Chat requests will use this key.",
+        Configured: "Configured",
+        Missing: "Missing",
+        Placeholder: "Enter API Key",
+        Save: "Save",
+        Delete: "Delete",
+        Saved: "API Key saved",
+        Deleted: "API Key deleted",
+      },
       CustomEndpoint: {
         Title: "Custom Endpoint",
         SubTitle: "Use custom Azure or OpenAI service",
