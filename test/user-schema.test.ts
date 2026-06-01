@@ -14,4 +14,13 @@ describe("user auth schema", () => {
     expect(AUTH_SCHEMA_SQL).toContain("UNIQUE KEY uniq_chat_sessions_user_client");
     expect(AUTH_SCHEMA_SQL).toContain("KEY idx_chat_messages_user_session");
   });
+
+  test("defines per-user API key table", () => {
+    expect(AUTH_SCHEMA_SQL).toContain("CREATE TABLE IF NOT EXISTS user_api_keys");
+    expect(AUTH_SCHEMA_SQL).toContain("api_key_ciphertext TEXT NOT NULL");
+    expect(AUTH_SCHEMA_SQL).toContain(
+      "UNIQUE KEY uniq_user_api_keys_user_provider",
+    );
+    expect(AUTH_SCHEMA_SQL).toContain("CONSTRAINT fk_user_api_keys_user");
+  });
 });

@@ -102,6 +102,8 @@ declare global {
       MYSQL_USER?: string;
       MYSQL_PASSWORD?: string;
       MYSQL_DATABASE?: string;
+
+      USER_API_KEY_ENCRYPTION_SECRET?: string;
     }
   }
 }
@@ -284,5 +286,7 @@ export const getServerSideConfig = () => {
     mysqlUser: process.env.MYSQL_USER,
     mysqlPassword: process.env.MYSQL_PASSWORD,
     mysqlDatabase: process.env.MYSQL_DATABASE,
+
+    userApiKeyEncryptionSecret: process.env.USER_API_KEY_ENCRYPTION_SECRET,
   };
 };
