@@ -26,7 +26,6 @@ import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
 import ReloadIcon from "../icons/reload.svg";
-import BreakIcon from "../icons/break.svg";
 import SettingsIcon from "../icons/chat-settings.svg";
 import DeleteIcon from "../icons/clear.svg";
 import PinIcon from "../icons/pin.svg";
@@ -35,9 +34,6 @@ import CloseIcon from "../icons/close.svg";
 import CancelIcon from "../icons/cancel.svg";
 import ImageIcon from "../icons/image.svg";
 
-import LightIcon from "../icons/light.svg";
-import DarkIcon from "../icons/dark.svg";
-import AutoIcon from "../icons/auto.svg";
 import BottomIcon from "../icons/bottom.svg";
 import StopIcon from "../icons/pause.svg";
 import RobotIcon from "../icons/robot.svg";
@@ -55,7 +51,6 @@ import {
   DEFAULT_TOPIC,
   ModelType,
   SubmitKey,
-  Theme,
   useAccessStore,
   useAppConfig,
   useChatStore,
@@ -514,17 +509,6 @@ export function ChatActions(props: {
   const pluginStore = usePluginStore();
   const session = chatStore.currentSession();
 
-  // switch themes
-  const theme = config.theme;
-
-  function nextTheme() {
-    const themes = [Theme.Auto, Theme.Light, Theme.Dark];
-    const themeIndex = themes.indexOf(theme);
-    const nextIndex = (themeIndex + 1) % themes.length;
-    const nextTheme = themes[nextIndex];
-    config.update((config) => (config.theme = nextTheme));
-  }
-
   // stop all responses
   const couldStop = ChatControllerPool.hasPending();
   const stopAll = () => ChatControllerPool.stopAll();
@@ -569,7 +553,7 @@ export function ChatActions(props: {
   const imageModelQualities = getImageModelQualities(currentModel);
   const dalle3Styles: DalleStyle[] = ["vivid", "natural"];
   const currentReasoningMode =
-    session.mask.modelConfig?.reasoningMode ?? "instant";
+    session.mask.modelConfig?.reasoningMode ?? "thinking";
   const reasoningModeItems = [
     { title: "Instant", value: "instant" },
     { title: "Thinking", value: "thinking" },
@@ -582,7 +566,7 @@ export function ChatActions(props: {
     currentModel,
     currentProviderName,
   );
-  const webSearchEnabled = session.mask.modelConfig?.webSearch ?? false;
+  const webSearchEnabled = session.mask.modelConfig?.webSearch ?? true;
   const currentSize =
     session.mask.modelConfig?.size ?? ("1024x1024" as ModelSize);
   const savedQuality = session.mask.modelConfig?.quality ?? "standard";
@@ -653,22 +637,6 @@ export function ChatActions(props: {
           />
         )}
         <ChatAction
-          onClick={nextTheme}
-          text={Locale.Chat.InputActions.Theme[theme]}
-          icon={
-            <>
-              {theme === Theme.Auto ? (
-                <AutoIcon />
-              ) : theme === Theme.Light ? (
-                <LightIcon />
-              ) : theme === Theme.Dark ? (
-                <DarkIcon />
-              ) : null}
-            </>
-          }
-        />
-
-        <ChatAction
           onClick={props.showPromptHints}
           text={Locale.Chat.InputActions.Prompt}
           icon={<PromptIcon />}
@@ -680,21 +648,6 @@ export function ChatActions(props: {
           }}
           text={Locale.Chat.InputActions.Masks}
           icon={<MaskIcon />}
-        />
-
-        <ChatAction
-          text={Locale.Chat.InputActions.Clear}
-          icon={<BreakIcon />}
-          onClick={() => {
-            chatStore.updateTargetSession(session, (session) => {
-              if (session.clearContextIndex === session.messages.length) {
-                session.clearContextIndex = undefined;
-              } else {
-                session.clearContextIndex = session.messages.length;
-                session.memoryPrompt = ""; // will clear memory
-              }
-            });
-          }}
         />
 
         <ChatAction

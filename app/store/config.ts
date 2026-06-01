@@ -87,8 +87,8 @@ export const DEFAULT_CONFIG = {
     size: "1024x1024" as ModelSize,
     quality: "low" as DalleQuality,
     style: "vivid" as DalleStyle,
-    reasoningMode: "instant" as GptReasoningMode,
-    webSearch: false,
+    reasoningMode: "thinking" as GptReasoningMode,
+    webSearch: true,
     webSearchContextSize: "low" as WebSearchContextSize,
   },
 
@@ -204,7 +204,7 @@ export const useAppConfig = createPersistStore(
   }),
   {
     name: StoreKey.Config,
-    version: 4.3,
+    version: 4.5,
 
     merge(persistedState, currentState) {
       const state = persistedState as ChatConfig | undefined;
@@ -273,6 +273,15 @@ export const useAppConfig = createPersistStore(
         state.modelConfig.webSearch = DEFAULT_CONFIG.modelConfig.webSearch;
         state.modelConfig.webSearchContextSize =
           DEFAULT_CONFIG.modelConfig.webSearchContextSize;
+      }
+
+      if (version < 4.4) {
+        state.modelConfig.reasoningMode =
+          DEFAULT_CONFIG.modelConfig.reasoningMode;
+      }
+
+      if (version < 4.5) {
+        state.modelConfig.webSearch = DEFAULT_CONFIG.modelConfig.webSearch;
       }
 
       return state as any;

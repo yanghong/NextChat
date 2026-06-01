@@ -5,6 +5,8 @@ import {
   supportsOpenAIReasoningMode,
   supportsOpenAIWebSearch,
 } from "../app/utils/model-capabilities";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 describe("OpenAI GPT reasoning mode", () => {
   test("adds high reasoning effort for GPT thinking mode", () => {
@@ -38,6 +40,15 @@ describe("OpenAI GPT reasoning mode", () => {
     expect(supportsOpenAIReasoningMode("gpt-image-2", "OpenAI")).toBe(false);
     expect(supportsOpenAIReasoningMode("gpt-5.5", "Azure")).toBe(false);
   });
+
+  test("defaults GPT reasoning mode to thinking", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/store/config.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain('reasoningMode: "thinking" as GptReasoningMode');
+  });
 });
 
 describe("OpenAI web search tool", () => {
@@ -55,6 +66,15 @@ describe("OpenAI web search tool", () => {
       { type: "web_search", search_context_size: "low" },
     ]);
     expect(payload.tool_choice).toEqual({ type: "web_search" });
+  });
+
+  test("defaults OpenAI web search to on", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/store/config.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("webSearch: true");
   });
 
   test("does not add web_search for disabled search or Azure", () => {

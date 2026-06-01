@@ -905,7 +905,7 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.3,
+    version: 3.5,
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -967,6 +967,23 @@ export const useChatStore = createPersistStore(
           const config = useAppConfig.getState();
           s.mask.modelConfig.compressModel = "";
           s.mask.modelConfig.compressProviderName = "";
+        });
+      }
+
+      if (version < 3.4) {
+        newState.sessions.forEach((s) => {
+          const config = useAppConfig.getState();
+          s.mask.modelConfig.reasoningMode =
+            config.modelConfig.reasoningMode ?? "thinking";
+        });
+      }
+
+      if (version < 3.5) {
+        newState.sessions.forEach((s) => {
+          const config = useAppConfig.getState();
+          s.mask.modelConfig.webSearch = config.modelConfig.webSearch ?? true;
+          s.mask.modelConfig.webSearchContextSize =
+            config.modelConfig.webSearchContextSize ?? "low";
         });
       }
 
