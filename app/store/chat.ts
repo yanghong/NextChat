@@ -99,6 +99,10 @@ export interface ChatSession {
   mask: Mask;
 }
 
+type ChatInputOptions = {
+  onError?: (error: Error) => boolean;
+};
+
 export const DEFAULT_TOPIC = Locale.Store.DefaultTopic;
 export const BOT_HELLO: ChatMessage = createMessage({
   role: "assistant",
@@ -419,6 +423,7 @@ export const useChatStore = createPersistStore(
         content: string,
         attachImages?: string[],
         isMcpResponse?: boolean,
+        options?: ChatInputOptions,
       ) {
         const session = get().currentSession();
         const modelConfig = session.mask.modelConfig;
@@ -468,6 +473,24 @@ export const useChatStore = createPersistStore(
         });
 
         const api: ClientApi = getClientApi(modelConfig.providerName);
+        const removePendingMessages = () => {
+          const pendingUserText = getMessageTextContent(userMessage);
+          set((state) => ({
+            sessions: state.sessions.map((session) => ({
+              ...session,
+              messages: session.messages.filter(
+                (message) =>
+                  message.id !== userMessage.id &&
+                  message.id !== botMessage.id &&
+                  !(
+                    message.role === "user" &&
+                    getMessageTextContent(message) === pendingUserText
+                  ),
+              ),
+            })),
+          }));
+        };
+
         // make request
         api.llm.chat({
           messages: sendMessages,
@@ -484,6 +507,12 @@ export const useChatStore = createPersistStore(
           async onFinish(message) {
             botMessage.streaming = false;
             if (message) {
+              if (options?.onError?.(new Error(message))) {
+                removePendingMessages();
+                ChatControllerPool.remove(session.id, botMessage.id);
+                return;
+              }
+
               botMessage.content = message;
               botMessage.date = new Date().toLocaleString();
               get().onNewMessage(botMessage, session);
@@ -509,6 +538,18 @@ export const useChatStore = createPersistStore(
           },
           onError(error) {
             const isAborted = error.message?.includes?.("aborted");
+            const handledByUI = !isAborted && options?.onError?.(error);
+            if (handledByUI) {
+              botMessage.streaming = false;
+              removePendingMessages();
+              ChatControllerPool.remove(
+                session.id,
+                botMessage.id ?? messageIndex,
+              );
+              console.error("[Chat] failed ", error);
+              return;
+            }
+
             botMessage.content +=
               "\n\n" +
               prettyObject({

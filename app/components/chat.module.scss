@@ -725,6 +725,21 @@
   color: var(--black);
 }
 
+.user-api-key-modal {
+  gap: 12px;
+
+  :global(.password-input-container) {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  :global(.password-input) {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .chat-main {
   display: flex;
   height: 100%;

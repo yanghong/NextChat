@@ -92,6 +92,7 @@ import {
   List,
   ListItem,
   Modal,
+  PasswordInput,
   Selector,
   showConfirm,
   showPrompt,
@@ -124,6 +125,7 @@ import { getModelProvider } from "../utils/model";
 import { RealtimeChat } from "@/app/components/realtime-chat";
 import clsx from "clsx";
 import { getAvailableClientsCount, isMcpEnabled } from "../mcp/actions";
+import { saveUserOpenAIKey } from "../client/user-api-key";
 
 const localStorage = safeLocalStorage();
 
@@ -132,6 +134,82 @@ const ttsPlayer = createTTSPlayer();
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
 });
+
+const USER_API_KEY_REQUIRED_MESSAGE = "请先在设置中填写 API Key";
+
+function isUserApiKeyRequiredError(error: Error) {
+  return error.message?.includes(USER_API_KEY_REQUIRED_MESSAGE);
+}
+
+function UserApiKeyRequiredModal(props: {
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function saveApiKey() {
+    const trimmedApiKey = apiKey.trim();
+    if (!trimmedApiKey) {
+      showToast(Locale.Settings.Access.UserOpenAIKey.Placeholder);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await saveUserOpenAIKey(trimmedApiKey);
+      showToast(Locale.Settings.Access.UserOpenAIKey.Saved);
+      props.onSaved();
+    } catch (error) {
+      showToast((error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-mask">
+      <Modal
+        title={Locale.Settings.Access.UserOpenAIKey.Title}
+        onClose={props.onClose}
+        actions={[
+          <IconButton
+            key="save"
+            text={Locale.Settings.Access.UserOpenAIKey.Save}
+            icon={<ConfirmIcon />}
+            type="primary"
+            disabled={saving}
+            onClick={saveApiKey}
+          />,
+        ]}
+      >
+        <List>
+          <ListItem
+            className={styles["user-api-key-modal"]}
+            title={Locale.Settings.Access.UserOpenAIKey.Title}
+            subTitle="聊天前需要先绑定你的 API Key，保存后会跟账号绑定，换设备登录也能继续使用。"
+            vertical
+          >
+            <PasswordInput
+              aria={Locale.Settings.ShowPassword}
+              aria-label={Locale.Settings.Access.UserOpenAIKey.Title}
+              value={apiKey}
+              type="text"
+              placeholder={Locale.Settings.Access.UserOpenAIKey.Placeholder}
+              onChange={(e) => setApiKey(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void saveApiKey();
+                }
+              }}
+              autoFocus
+            />
+          </ListItem>
+        </List>
+      </Modal>
+    </div>
+  );
+}
 
 const MCPAction = () => {
   const navigate = useNavigate();
@@ -1052,6 +1130,7 @@ function _Chat() {
   const navigate = useNavigate();
   const [attachImages, setAttachImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [showUserApiKeyModal, setShowUserApiKeyModal] = useState(false);
 
   // prompt hints
   const promptStore = usePromptStore();
@@ -1130,12 +1209,26 @@ function _Chat() {
       matchCommand.invoke();
       return;
     }
+    const submittedInput = userInput;
+    const submittedImages = attachImages.slice();
     setIsLoading(true);
     chatStore
-      .onUserInput(userInput, attachImages)
+      .onUserInput(submittedInput, submittedImages, false, {
+        onError(error) {
+          if (!isUserApiKeyRequiredError(error)) {
+            return false;
+          }
+
+          setShowUserApiKeyModal(true);
+          setUserInput(submittedInput);
+          setAttachImages(submittedImages);
+          showToast(USER_API_KEY_REQUIRED_MESSAGE);
+          return true;
+        },
+      })
       .then(() => setIsLoading(false));
     setAttachImages([]);
-    chatStore.setLastInput(userInput);
+    chatStore.setLastInput(submittedInput);
     setUserInput("");
     setPromptHints([]);
     if (!isMobileScreen) inputRef.current?.focus();
@@ -2178,6 +2271,16 @@ function _Chat() {
 
       {showShortcutKeyModal && (
         <ShortcutKeyModal onClose={() => setShowShortcutKeyModal(false)} />
+      )}
+
+      {showUserApiKeyModal && (
+        <UserApiKeyRequiredModal
+          onClose={() => setShowUserApiKeyModal(false)}
+          onSaved={() => {
+            setShowUserApiKeyModal(false);
+            inputRef.current?.focus();
+          }}
+        />
       )}
     </>
   );
