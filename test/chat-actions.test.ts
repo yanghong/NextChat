@@ -38,6 +38,15 @@ describe("chat input actions", () => {
     expect(compactSource).toContain("onClick={()=>showImageModal(image)}");
   });
 
+  test("replaces plugin shortcut with image generation toggle", () => {
+    const source = readChatSource();
+
+    expect(source).not.toContain("text={Locale.Plugin.Name}");
+    expect(source).toContain('text={imageGenerationEnabled ? "生成图片 On" : "生成图片"}');
+    expect(source).toContain('session.mask.modelConfig.model = "gpt-image-2"');
+    expect(source).toContain("previousChatModelRef");
+  });
+
   test("lets chat errors be handled by the UI without writing a generic error bubble", () => {
     const source = readFileSync(
       join(process.cwd(), "app/store/chat.ts"),

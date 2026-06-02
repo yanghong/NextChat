@@ -40,7 +40,6 @@ import RobotIcon from "../icons/robot.svg";
 import SizeIcon from "../icons/size.svg";
 import QualityIcon from "../icons/hd.svg";
 import StyleIcon from "../icons/palette.svg";
-import PluginIcon from "../icons/plugin.svg";
 import ShortcutkeyIcon from "../icons/shortcutkey.svg";
 import McpToolIcon from "../icons/tool.svg";
 import HeadphoneIcon from "../icons/headphone.svg";
@@ -54,7 +53,6 @@ import {
   useAccessStore,
   useAppConfig,
   useChatStore,
-  usePluginStore,
 } from "../store";
 
 import {
@@ -73,7 +71,6 @@ import {
   supportsOpenAIWebSearch,
   useMobileScreen,
   selectOrCopy,
-  showPlugins,
 } from "../utils";
 
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
@@ -131,6 +128,9 @@ import { saveUserOpenAIKey } from "../client/user-api-key";
 const localStorage = safeLocalStorage();
 
 const ttsPlayer = createTTSPlayer();
+
+const IMAGE_GENERATION_MODEL = "gpt-image-2" as ModelType;
+const IMAGE_GENERATION_PROVIDER = ServiceProvider.OpenAI;
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
   loading: () => <LoadingIcon />,
@@ -585,8 +585,11 @@ export function ChatActions(props: {
   const config = useAppConfig();
   const navigate = useNavigate();
   const chatStore = useChatStore();
-  const pluginStore = usePluginStore();
   const session = chatStore.currentSession();
+  const previousChatModelRef = useRef<{
+    model: ModelType;
+    providerName: ServiceProvider;
+  } | null>(null);
 
   // stop all responses
   const couldStop = ChatControllerPool.hasPending();
@@ -620,7 +623,6 @@ export function ChatActions(props: {
     return model?.displayName ?? "";
   }, [models, currentModel, currentProviderName]);
   const [showModelSelector, setShowModelSelector] = useState(false);
-  const [showPluginSelector, setShowPluginSelector] = useState(false);
   const [showUploadImage, setShowUploadImage] = useState(false);
 
   const [showSizeSelector, setShowSizeSelector] = useState(false);
@@ -653,8 +655,73 @@ export function ChatActions(props: {
     ? savedQuality
     : imageModelQualities[0] ?? "standard";
   const currentStyle = session.mask.modelConfig?.style ?? "vivid";
+  const imageGenerationEnabled =
+    currentModel === IMAGE_GENERATION_MODEL &&
+    currentProviderName === IMAGE_GENERATION_PROVIDER;
 
   const isMobileScreen = useMobileScreen();
+
+  const fallbackChatModel = useMemo(
+    () =>
+      models.find((m) => m.isDefault && !isImageGenerationModel(m.name)) ||
+      models.find(
+        (m) =>
+          !isImageGenerationModel(m.name) &&
+          m?.provider?.providerName === ServiceProvider.OpenAI,
+      ) ||
+      models.find((m) => !isImageGenerationModel(m.name)),
+    [models],
+  );
+
+  const toggleImageGeneration = () => {
+    if (!imageGenerationEnabled) {
+      if (!isImageGenerationModel(currentModel)) {
+        previousChatModelRef.current = {
+          model: currentModel,
+          providerName: currentProviderName as ServiceProvider,
+        };
+      }
+      chatStore.updateTargetSession(session, (session) => {
+        session.mask.modelConfig.model = "gpt-image-2" as ModelType;
+        session.mask.modelConfig.providerName = IMAGE_GENERATION_PROVIDER;
+        session.mask.modelConfig.size = "1024x1024";
+        session.mask.modelConfig.quality = "low";
+        session.mask.syncGlobalConfig = false;
+      });
+      showToast("生成图片 On");
+      return;
+    }
+
+    const previousModel = previousChatModelRef.current;
+    const nextModel =
+      previousModel &&
+      models.some(
+        (m) =>
+          m.name === previousModel.model &&
+          m?.provider?.providerName === previousModel.providerName,
+      )
+        ? previousModel
+        : fallbackChatModel
+        ? {
+            model: fallbackChatModel.name as ModelType,
+            providerName: fallbackChatModel.provider
+              ?.providerName as ServiceProvider,
+          }
+        : null;
+
+    if (!nextModel) {
+      showToast("没有可用的聊天模型");
+      return;
+    }
+
+    chatStore.updateTargetSession(session, (session) => {
+      session.mask.modelConfig.model = nextModel.model;
+      session.mask.modelConfig.providerName = nextModel.providerName;
+      session.mask.syncGlobalConfig = false;
+    });
+    previousChatModelRef.current = null;
+    showToast("生成图片 Off");
+  };
 
   useEffect(() => {
     const show = isVisionModel(currentModel);
@@ -893,35 +960,11 @@ export function ChatActions(props: {
           />
         )}
 
-        {showPlugins(currentProviderName, currentModel) && (
-          <ChatAction
-            onClick={() => {
-              if (pluginStore.getAll().length == 0) {
-                navigate(Path.Plugins);
-              } else {
-                setShowPluginSelector(true);
-              }
-            }}
-            text={Locale.Plugin.Name}
-            icon={<PluginIcon />}
-          />
-        )}
-        {showPluginSelector && (
-          <Selector
-            multiple
-            defaultSelectedValue={chatStore.currentSession().mask?.plugin}
-            items={pluginStore.getAll().map((item) => ({
-              title: `${item?.title}@${item?.version}`,
-              value: item?.id,
-            }))}
-            onClose={() => setShowPluginSelector(false)}
-            onSelection={(s) => {
-              chatStore.updateTargetSession(session, (session) => {
-                session.mask.plugin = s as string[];
-              });
-            }}
-          />
-        )}
+        <ChatAction
+          onClick={toggleImageGeneration}
+          text={imageGenerationEnabled ? "生成图片 On" : "生成图片"}
+          icon={<ImageIcon />}
+        />
 
         {!isMobileScreen && (
           <ChatAction
