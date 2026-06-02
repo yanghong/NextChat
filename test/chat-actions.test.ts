@@ -27,6 +27,17 @@ describe("chat input actions", () => {
     expect(source).toContain("vertical");
   });
 
+  test("lets users click chat images to preview the full image", () => {
+    const source = readChatSource();
+    const compactSource = source.replace(/\s+/g, "");
+
+    expect(source).toContain("showImageModal");
+    expect(compactSource).toContain(
+      "onClick={()=>showImageModal(getMessageImages(message)[0])}",
+    );
+    expect(compactSource).toContain("onClick={()=>showImageModal(image)}");
+  });
+
   test("lets chat errors be handled by the UI without writing a generic error bubble", () => {
     const source = readFileSync(
       join(process.cwd(), "app/store/chat.ts"),

@@ -95,6 +95,7 @@ import {
   PasswordInput,
   Selector,
   showConfirm,
+  showImageModal,
   showPrompt,
   showToast,
 } from "./ui-lib";
@@ -2102,6 +2103,9 @@ function _Chat() {
                                 className={styles["chat-message-item-image"]}
                                 src={getMessageImages(message)[0]}
                                 alt=""
+                                onClick={() =>
+                                  showImageModal(getMessageImages(message)[0])
+                                }
                               />
                             )}
                             {getMessageImages(message).length > 1 && (
@@ -2126,6 +2130,7 @@ function _Chat() {
                                         key={index}
                                         src={image}
                                         alt=""
+                                        onClick={() => showImageModal(image)}
                                       />
                                     );
                                   },
