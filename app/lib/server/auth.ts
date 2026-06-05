@@ -15,7 +15,7 @@ export type AuthUser = {
   name: string;
 };
 
-export const AUTH_COOKIE_NAME = "nextchat_session";
+export const AUTH_COOKIE_NAME = "hongai_session";
 
 export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();

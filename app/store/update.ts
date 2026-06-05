@@ -31,6 +31,7 @@ type VersionType = "date" | "tag";
 
 async function getVersion(type: VersionType) {
   if (type === "date") {
+    if (!FETCH_COMMIT_URL) return;
     const data = (await (await fetch(FETCH_COMMIT_URL)).json()) as {
       commit: {
         author: { name: string; date: string };
@@ -41,6 +42,7 @@ async function getVersion(type: VersionType) {
     const remoteId = new Date(remoteCommitTime).getTime().toString();
     return remoteId;
   } else if (type === "tag") {
+    if (!FETCH_TAG_URL) return;
     const data = (await (await fetch(FETCH_TAG_URL)).json()) as {
       commit: { sha: string; url: string };
       name: string;
@@ -105,7 +107,7 @@ export const useUpdateStore = createPersistStore(
                       if (version === remoteId) {
                         // Show a notification using Tauri
                         window.__TAURI__?.notification.sendNotification({
-                          title: "NextChat",
+                          title: "Hongai",
                           body: `${Locale.Settings.Update.IsLatest}`,
                           icon: `${ChatGptIcon.src}`,
                           sound: "Default",
@@ -115,7 +117,7 @@ export const useUpdateStore = createPersistStore(
                           Locale.Settings.Update.FoundUpdate(`${remoteId}`);
                         // Show a notification for the new version using Tauri
                         window.__TAURI__?.notification.sendNotification({
-                          title: "NextChat",
+                          title: "Hongai",
                           body: updateMessage,
                           icon: `${ChatGptIcon.src}`,
                           sound: "Default",

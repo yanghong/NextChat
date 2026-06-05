@@ -1,11 +1,11 @@
 [package]
-name = "nextchat"
+name = "hongai"
 version = "0.1.0"
 description = "A cross platform app for LLM ChatBot."
-authors = ["Yidadaa"]
+authors = ["Hongai"]
 license = "mit"
 repository = ""
-default-run = "nextchat"
+default-run = "hongai"
 edition = "2021"
 rust-version = "1.60"
 

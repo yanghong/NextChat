@@ -8,7 +8,7 @@
     "withGlobalTauri": true
   },
   "package": {
-    "productName": "NextChat",
+    "productName": "Hongai",
     "version": "2.16.1"
   },
   "tauri": {
@@ -72,8 +72,8 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.yida.chatgpt.next.web",
-      "longDescription": "NextChat is a cross-platform ChatGPT client, including Web/Win/Linux/OSX/PWA.",
+      "identifier": "com.hongai.app",
+      "longDescription": "Hongai is a cross-platform ChatGPT client, including Web/Win/Linux/OSX/PWA.",
       "macOS": {
         "entitlements": null,
         "exceptionDomain": "",
@@ -82,7 +82,7 @@
         "signingIdentity": null
       },
       "resources": [],
-      "shortDescription": "NextChat App",
+      "shortDescription": "Hongai App",
       "targets": "all",
       "windows": {
         "certificateThumbprint": null,
@@ -96,9 +96,7 @@
     },
     "updater": {
       "active": true,
-      "endpoints": [
-        "https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://www.hongai.store/latest.json"],
       "dialog": true,
       "windows": {
         "installMode": "passive"
@@ -110,7 +108,7 @@
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "title": "NextChat",
+        "title": "Hongai",
         "width": 960,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay"
