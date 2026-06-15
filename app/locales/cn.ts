@@ -212,6 +212,13 @@ const cn = {
     SendKey: "发送键",
     Theme: "主题",
     TightBorder: "无边框模式",
+    Tabs: {
+      Common: "常用",
+      Account: "账户与密钥",
+      Model: "模型",
+      Sync: "同步",
+      Advanced: "高级",
+    },
     SendPreviewBubble: {
       Title: "预览气泡",
       SubTitle: "在预览气泡中预览 Markdown 内容",
@@ -259,7 +266,7 @@ const cn = {
 
       LocalState: "本地数据",
       Overview: (overview: any) => {
-        return `${overview.chat} 次对话，${overview.message} 条消息，${overview.prompt} 条提示词，${overview.mask} 个面具`;
+        return `${overview.chat} 次对话，${overview.message} 条消息`;
       },
       ImportFailed: "导入失败",
     },

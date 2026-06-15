@@ -3,14 +3,10 @@ import { useState, useEffect, useMemo } from "react";
 import styles from "./settings.module.scss";
 
 import ResetIcon from "../icons/reload.svg";
-import AddIcon from "../icons/add.svg";
 import CloseIcon from "../icons/close.svg";
-import CopyIcon from "../icons/copy.svg";
 import ClearIcon from "../icons/clear.svg";
 import LoadingIcon from "../icons/three-dots.svg";
-import EditIcon from "../icons/edit.svg";
 import FireIcon from "../icons/fire.svg";
-import EyeIcon from "../icons/eye.svg";
 import DownloadIcon from "../icons/download.svg";
 import UploadIcon from "../icons/upload.svg";
 import ConfigIcon from "../icons/config.svg";
@@ -21,7 +17,6 @@ import CloudSuccessIcon from "../icons/cloud-success.svg";
 import CloudFailIcon from "../icons/cloud-fail.svg";
 import { trackSettingsPageGuideToCPaymentClick } from "../utils/auth-settings-events";
 import {
-  Input,
   List,
   ListItem,
   Modal,
@@ -49,7 +44,7 @@ import Locale, {
   changeLang,
   getLang,
 } from "../locales";
-import { copyToClipboard, clientUpdate, semverCompare } from "../utils";
+import { clientUpdate, semverCompare } from "../utils";
 import Link from "next/link";
 import {
   Anthropic,
@@ -77,15 +72,12 @@ import {
   SiliconFlow,
   AI302,
 } from "../constant";
-import { Prompt, SearchService, usePromptStore } from "../store/prompt";
 import { ErrorBoundary } from "./error";
 import { InputRange } from "./input-range";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarPicker } from "./emoji";
 import { getClientConfig } from "../config/client";
 import { useSyncStore } from "../store/sync";
-import { nanoid } from "nanoid";
-import { useMaskStore } from "../store/mask";
 import { ProviderType } from "../utils/cloud";
 import { TTSConfigList } from "./tts-config";
 import { RealtimeConfigList } from "./realtime-chat/realtime-config";
@@ -94,160 +86,6 @@ import {
   getUserApiKeyState,
   saveUserOpenAIKey,
 } from "../client/user-api-key";
-
-function EditPromptModal(props: { id: string; onClose: () => void }) {
-  const promptStore = usePromptStore();
-  const prompt = promptStore.get(props.id);
-
-  return prompt ? (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Settings.Prompt.EditModal.Title}
-        onClose={props.onClose}
-        actions={[
-          <IconButton
-            key=""
-            onClick={props.onClose}
-            text={Locale.UI.Confirm}
-            bordered
-          />,
-        ]}
-      >
-        <div className={styles["edit-prompt-modal"]}>
-          <input
-            type="text"
-            value={prompt.title}
-            readOnly={!prompt.isUser}
-            className={styles["edit-prompt-title"]}
-            onInput={(e) =>
-              promptStore.updatePrompt(
-                props.id,
-                (prompt) => (prompt.title = e.currentTarget.value),
-              )
-            }
-          ></input>
-          <Input
-            value={prompt.content}
-            readOnly={!prompt.isUser}
-            className={styles["edit-prompt-content"]}
-            rows={10}
-            onInput={(e) =>
-              promptStore.updatePrompt(
-                props.id,
-                (prompt) => (prompt.content = e.currentTarget.value),
-              )
-            }
-          ></Input>
-        </div>
-      </Modal>
-    </div>
-  ) : null;
-}
-
-function UserPromptModal(props: { onClose?: () => void }) {
-  const promptStore = usePromptStore();
-  const userPrompts = promptStore.getUserPrompts();
-  const builtinPrompts = SearchService.builtinPrompts;
-  const allPrompts = userPrompts.concat(builtinPrompts);
-  const [searchInput, setSearchInput] = useState("");
-  const [searchPrompts, setSearchPrompts] = useState<Prompt[]>([]);
-  const prompts = searchInput.length > 0 ? searchPrompts : allPrompts;
-
-  const [editingPromptId, setEditingPromptId] = useState<string>();
-
-  useEffect(() => {
-    if (searchInput.length > 0) {
-      const searchResult = SearchService.search(searchInput);
-      setSearchPrompts(searchResult);
-    } else {
-      setSearchPrompts([]);
-    }
-  }, [searchInput]);
-
-  return (
-    <div className="modal-mask">
-      <Modal
-        title={Locale.Settings.Prompt.Modal.Title}
-        onClose={() => props.onClose?.()}
-        actions={[
-          <IconButton
-            key="add"
-            onClick={() => {
-              const promptId = promptStore.add({
-                id: nanoid(),
-                createdAt: Date.now(),
-                title: "Empty Prompt",
-                content: "Empty Prompt Content",
-              });
-              setEditingPromptId(promptId);
-            }}
-            icon={<AddIcon />}
-            bordered
-            text={Locale.Settings.Prompt.Modal.Add}
-          />,
-        ]}
-      >
-        <div className={styles["user-prompt-modal"]}>
-          <input
-            type="text"
-            className={styles["user-prompt-search"]}
-            placeholder={Locale.Settings.Prompt.Modal.Search}
-            value={searchInput}
-            onInput={(e) => setSearchInput(e.currentTarget.value)}
-          ></input>
-
-          <div className={styles["user-prompt-list"]}>
-            {prompts.map((v, _) => (
-              <div className={styles["user-prompt-item"]} key={v.id ?? v.title}>
-                <div className={styles["user-prompt-header"]}>
-                  <div className={styles["user-prompt-title"]}>{v.title}</div>
-                  <div className={styles["user-prompt-content"] + " one-line"}>
-                    {v.content}
-                  </div>
-                </div>
-
-                <div className={styles["user-prompt-buttons"]}>
-                  {v.isUser && (
-                    <IconButton
-                      icon={<ClearIcon />}
-                      className={styles["user-prompt-button"]}
-                      onClick={() => promptStore.remove(v.id!)}
-                    />
-                  )}
-                  {v.isUser ? (
-                    <IconButton
-                      icon={<EditIcon />}
-                      className={styles["user-prompt-button"]}
-                      onClick={() => setEditingPromptId(v.id)}
-                    />
-                  ) : (
-                    <IconButton
-                      icon={<EyeIcon />}
-                      className={styles["user-prompt-button"]}
-                      onClick={() => setEditingPromptId(v.id)}
-                    />
-                  )}
-                  <IconButton
-                    icon={<CopyIcon />}
-                    className={styles["user-prompt-button"]}
-                    onClick={() => copyToClipboard(v.content)}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Modal>
-
-      {editingPromptId !== undefined && (
-        <EditPromptModal
-          id={editingPromptId!}
-          onClose={() => setEditingPromptId(undefined)}
-        />
-      )}
-    </div>
-  );
-}
 
 function DangerItems() {
   const chatStore = useChatStore();
@@ -494,8 +332,6 @@ function SyncConfigModal(props: { onClose?: () => void }) {
 function SyncItems() {
   const syncStore = useSyncStore();
   const chatStore = useChatStore();
-  const promptStore = usePromptStore();
-  const maskStore = useMaskStore();
   const couldSync = useMemo(() => {
     return syncStore.cloudSync();
   }, [syncStore]);
@@ -509,10 +345,8 @@ function SyncItems() {
     return {
       chat: sessions.length,
       message: messageCount,
-      prompt: Object.keys(promptStore.prompts).length,
-      mask: Object.keys(maskStore.masks).length,
     };
-  }, [chatStore.sessions, maskStore.masks, promptStore.prompts]);
+  }, [chatStore.sessions]);
 
   return (
     <>
@@ -587,7 +421,10 @@ function SyncItems() {
 }
 
 export function Settings() {
+  type SettingsTab = "common" | "account" | "model" | "sync" | "advanced";
+
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<SettingsTab>("common");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const config = useAppConfig();
   const updateConfig = config.update;
@@ -646,13 +483,16 @@ export function Settings() {
     [],
   );
 
-  const promptStore = usePromptStore();
-  const builtinCount = SearchService.count.builtin;
-  const customCount = promptStore.getUserPrompts().length ?? 0;
-  const [shouldShowPromptModal, setShowPromptModal] = useState(false);
   const [userOpenAIKeyInput, setUserOpenAIKeyInput] = useState("");
   const [hasUserOpenAIKey, setHasUserOpenAIKey] = useState(false);
   const [loadingUserOpenAIKey, setLoadingUserOpenAIKey] = useState(false);
+  const settingsTabs: Array<{ id: SettingsTab; title: string }> = [
+    { id: "common", title: Locale.Settings.Tabs.Common },
+    { id: "account", title: Locale.Settings.Tabs.Account },
+    { id: "model", title: Locale.Settings.Tabs.Model },
+    { id: "sync", title: Locale.Settings.Tabs.Sync },
+    { id: "advanced", title: Locale.Settings.Tabs.Advanced },
+  ];
 
   const showUsage = accessStore.isAuthorized();
   useEffect(() => {
@@ -1654,440 +1494,401 @@ export function Settings() {
         </div>
       </div>
       <div className={styles["settings"]}>
-        {privateOpenAIConfigComponent}
-
-        <List>
-          <ListItem title={Locale.Settings.Avatar}>
-            <Popover
-              onClose={() => setShowEmojiPicker(false)}
-              content={
-                <AvatarPicker
-                  onEmojiClick={(avatar: string) => {
-                    updateConfig((config) => (config.avatar = avatar));
-                    setShowEmojiPicker(false);
-                  }}
-                />
+        <div className={styles["settings-tabs"]}>
+          {settingsTabs.map((tab) => (
+            <button
+              key={tab.id}
+              className={
+                activeTab === tab.id ? styles["settings-tab-active"] : ""
               }
-              open={showEmojiPicker}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
             >
-              <div
-                aria-label={Locale.Settings.Avatar}
-                tabIndex={0}
-                className={styles.avatar}
-                onClick={() => {
-                  setShowEmojiPicker(!showEmojiPicker);
-                }}
+              {tab.title}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "common" && (
+          <List>
+            <ListItem title={Locale.Settings.Avatar}>
+              <Popover
+                onClose={() => setShowEmojiPicker(false)}
+                content={
+                  <AvatarPicker
+                    onEmojiClick={(avatar: string) => {
+                      updateConfig((config) => (config.avatar = avatar));
+                      setShowEmojiPicker(false);
+                    }}
+                  />
+                }
+                open={showEmojiPicker}
               >
-                <Avatar avatar={config.avatar} />
-              </div>
-            </Popover>
-          </ListItem>
+                <div
+                  aria-label={Locale.Settings.Avatar}
+                  tabIndex={0}
+                  className={styles.avatar}
+                  onClick={() => {
+                    setShowEmojiPicker(!showEmojiPicker);
+                  }}
+                >
+                  <Avatar avatar={config.avatar} />
+                </div>
+              </Popover>
+            </ListItem>
 
-          <ListItem
-            title={Locale.Settings.Update.Version(currentVersion ?? "unknown")}
-            subTitle={
-              checkingUpdate
-                ? Locale.Settings.Update.IsChecking
-                : hasNewVersion
-                ? Locale.Settings.Update.FoundUpdate(remoteId ?? "ERROR")
-                : Locale.Settings.Update.IsLatest
-            }
-          >
-            {checkingUpdate ? (
-              <LoadingIcon />
-            ) : hasNewVersion ? (
-              clientConfig?.isApp ? (
-                <IconButton
-                  icon={<ResetIcon></ResetIcon>}
-                  text={Locale.Settings.Update.GoToUpdate}
-                  onClick={() => clientUpdate()}
-                />
-              ) : (
-                <Link href={updateUrl} target="_blank" className="link">
-                  {Locale.Settings.Update.GoToUpdate}
-                </Link>
-              )
-            ) : (
-              <IconButton
-                icon={<ResetIcon></ResetIcon>}
-                text={Locale.Settings.Update.CheckUpdate}
-                onClick={() => checkUpdate(true)}
-              />
-            )}
-          </ListItem>
-
-          <ListItem title={Locale.Settings.SendKey}>
-            <Select
-              aria-label={Locale.Settings.SendKey}
-              value={config.submitKey}
-              onChange={(e) => {
-                updateConfig(
-                  (config) =>
-                    (config.submitKey = e.target.value as any as SubmitKey),
-                );
-              }}
-            >
-              {Object.values(SubmitKey).map((v) => (
-                <option value={v} key={v}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-
-          <ListItem title={Locale.Settings.Theme}>
-            <Select
-              aria-label={Locale.Settings.Theme}
-              value={config.theme}
-              onChange={(e) => {
-                updateConfig(
-                  (config) => (config.theme = e.target.value as any as Theme),
-                );
-              }}
-            >
-              {Object.values(Theme).map((v) => (
-                <option value={v} key={v}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-
-          <ListItem title={Locale.Settings.Lang.Name}>
-            <Select
-              aria-label={Locale.Settings.Lang.Name}
-              value={getLang()}
-              onChange={(e) => {
-                changeLang(e.target.value as any);
-              }}
-            >
-              {AllLangs.map((lang) => (
-                <option value={lang} key={lang}>
-                  {ALL_LANG_OPTIONS[lang]}
-                </option>
-              ))}
-            </Select>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.FontSize.Title}
-            subTitle={Locale.Settings.FontSize.SubTitle}
-          >
-            <InputRange
-              aria={Locale.Settings.FontSize.Title}
-              title={`${config.fontSize ?? 14}px`}
-              value={config.fontSize}
-              min="12"
-              max="40"
-              step="1"
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.fontSize = Number.parseInt(e.currentTarget.value)),
-                )
-              }
-            ></InputRange>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.FontFamily.Title}
-            subTitle={Locale.Settings.FontFamily.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.FontFamily.Title}
-              type="text"
-              value={config.fontFamily}
-              placeholder={Locale.Settings.FontFamily.Placeholder}
-              onChange={(e) =>
-                updateConfig(
-                  (config) => (config.fontFamily = e.currentTarget.value),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.AutoGenerateTitle.Title}
-            subTitle={Locale.Settings.AutoGenerateTitle.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.AutoGenerateTitle.Title}
-              type="checkbox"
-              checked={config.enableAutoGenerateTitle}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.enableAutoGenerateTitle = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.SendPreviewBubble.Title}
-            subTitle={Locale.Settings.SendPreviewBubble.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.SendPreviewBubble.Title}
-              type="checkbox"
-              checked={config.sendPreviewBubble}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.sendPreviewBubble = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Mask.Config.Artifacts.Title}
-            subTitle={Locale.Mask.Config.Artifacts.SubTitle}
-          >
-            <input
-              aria-label={Locale.Mask.Config.Artifacts.Title}
-              type="checkbox"
-              checked={config.enableArtifacts}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.enableArtifacts = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-          <ListItem
-            title={Locale.Mask.Config.CodeFold.Title}
-            subTitle={Locale.Mask.Config.CodeFold.SubTitle}
-          >
-            <input
-              aria-label={Locale.Mask.Config.CodeFold.Title}
-              type="checkbox"
-              checked={config.enableCodeFold}
-              data-testid="enable-code-fold-checkbox"
-              onChange={(e) =>
-                updateConfig(
-                  (config) => (config.enableCodeFold = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
-
-        <SyncItems />
-
-        <List>
-          <ListItem
-            title={Locale.Settings.Mask.Splash.Title}
-            subTitle={Locale.Settings.Mask.Splash.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.Mask.Splash.Title}
-              type="checkbox"
-              checked={!config.dontShowMaskSplashScreen}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.dontShowMaskSplashScreen =
-                      !e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.Mask.Builtin.Title}
-            subTitle={Locale.Settings.Mask.Builtin.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.Mask.Builtin.Title}
-              type="checkbox"
-              checked={config.hideBuiltinMasks}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.hideBuiltinMasks = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
-
-        <List>
-          <ListItem
-            title={Locale.Settings.Prompt.Disable.Title}
-            subTitle={Locale.Settings.Prompt.Disable.SubTitle}
-          >
-            <input
-              aria-label={Locale.Settings.Prompt.Disable.Title}
-              type="checkbox"
-              checked={config.disablePromptHint}
-              onChange={(e) =>
-                updateConfig(
-                  (config) =>
-                    (config.disablePromptHint = e.currentTarget.checked),
-                )
-              }
-            ></input>
-          </ListItem>
-
-          <ListItem
-            title={Locale.Settings.Prompt.List}
-            subTitle={Locale.Settings.Prompt.ListCount(
-              builtinCount,
-              customCount,
-            )}
-          >
-            <IconButton
-              aria={Locale.Settings.Prompt.List + Locale.Settings.Prompt.Edit}
-              icon={<EditIcon />}
-              text={Locale.Settings.Prompt.Edit}
-              onClick={() => setShowPromptModal(true)}
-            />
-          </ListItem>
-        </List>
-
-        <List id={SlotID.CustomModel}>
-          {saasStartComponent}
-          {accessCodeComponent}
-          {userOpenAIKeyComponent}
-
-          {!accessStore.hideUserApiKey && (
-            <>
-              {useCustomConfigComponent}
-
-              {accessStore.useCustomConfig && (
-                <>
-                  <ListItem
-                    title={Locale.Settings.Access.Provider.Title}
-                    subTitle={Locale.Settings.Access.Provider.SubTitle}
-                  >
-                    <Select
-                      aria-label={Locale.Settings.Access.Provider.Title}
-                      value={accessStore.provider}
-                      onChange={(e) => {
-                        accessStore.update(
-                          (access) =>
-                            (access.provider = e.target
-                              .value as ServiceProvider),
-                        );
-                      }}
-                    >
-                      {Object.entries(ServiceProvider).map(([k, v]) => (
-                        <option value={v} key={k}>
-                          {k}
-                        </option>
-                      ))}
-                    </Select>
-                  </ListItem>
-
-                  {accessStore.provider === ServiceProvider.OpenAI
-                    ? null
-                    : openAIConfigComponent}
-                  {azureConfigComponent}
-                  {googleConfigComponent}
-                  {anthropicConfigComponent}
-                  {baiduConfigComponent}
-                  {byteDanceConfigComponent}
-                  {alibabaConfigComponent}
-                  {tencentConfigComponent}
-                  {moonshotConfigComponent}
-                  {deepseekConfigComponent}
-                  {stabilityConfigComponent}
-                  {lflytekConfigComponent}
-                  {XAIConfigComponent}
-                  {chatglmConfigComponent}
-                  {siliconflowConfigComponent}
-                  {ai302ConfigComponent}
-                </>
-              )}
-            </>
-          )}
-
-          {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
             <ListItem
-              title={Locale.Settings.Usage.Title}
+              title={Locale.Settings.Update.Version(
+                currentVersion ?? "unknown",
+              )}
               subTitle={
-                showUsage
-                  ? loadingUsage
-                    ? Locale.Settings.Usage.IsChecking
-                    : Locale.Settings.Usage.SubTitle(
-                        usage?.used ?? "[?]",
-                        usage?.subscription ?? "[?]",
-                      )
-                  : Locale.Settings.Usage.NoAccess
+                checkingUpdate
+                  ? Locale.Settings.Update.IsChecking
+                  : hasNewVersion
+                  ? Locale.Settings.Update.FoundUpdate(remoteId ?? "ERROR")
+                  : Locale.Settings.Update.IsLatest
               }
             >
-              {!showUsage || loadingUsage ? (
-                <div />
+              {checkingUpdate ? (
+                <LoadingIcon />
+              ) : hasNewVersion ? (
+                clientConfig?.isApp ? (
+                  <IconButton
+                    icon={<ResetIcon></ResetIcon>}
+                    text={Locale.Settings.Update.GoToUpdate}
+                    onClick={() => clientUpdate()}
+                  />
+                ) : (
+                  <Link href={updateUrl} target="_blank" className="link">
+                    {Locale.Settings.Update.GoToUpdate}
+                  </Link>
+                )
               ) : (
                 <IconButton
                   icon={<ResetIcon></ResetIcon>}
-                  text={Locale.Settings.Usage.Check}
-                  onClick={() => checkUsage(true)}
+                  text={Locale.Settings.Update.CheckUpdate}
+                  onClick={() => checkUpdate(true)}
                 />
               )}
             </ListItem>
-          ) : null}
 
-          <ListItem
-            title={Locale.Settings.Access.CustomModel.Title}
-            subTitle={Locale.Settings.Access.CustomModel.SubTitle}
-            vertical={true}
-          >
-            <input
-              aria-label={Locale.Settings.Access.CustomModel.Title}
-              style={{ width: "100%", maxWidth: "unset", textAlign: "left" }}
-              type="text"
-              value={config.customModels}
-              placeholder="model1,model2,model3"
-              onChange={(e) =>
-                config.update(
-                  (config) => (config.customModels = e.currentTarget.value),
-                )
-              }
-            ></input>
-          </ListItem>
-        </List>
+            <ListItem title={Locale.Settings.SendKey}>
+              <Select
+                aria-label={Locale.Settings.SendKey}
+                value={config.submitKey}
+                onChange={(e) => {
+                  updateConfig(
+                    (config) =>
+                      (config.submitKey = e.target.value as any as SubmitKey),
+                  );
+                }}
+              >
+                {Object.values(SubmitKey).map((v) => (
+                  <option value={v} key={v}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </ListItem>
 
-        <List>
-          <ModelConfigList
-            modelConfig={config.modelConfig}
-            updateConfig={(updater) => {
-              const modelConfig = { ...config.modelConfig };
-              updater(modelConfig);
-              config.update((config) => (config.modelConfig = modelConfig));
-            }}
-          />
-        </List>
+            <ListItem title={Locale.Settings.Theme}>
+              <Select
+                aria-label={Locale.Settings.Theme}
+                value={config.theme}
+                onChange={(e) => {
+                  updateConfig(
+                    (config) => (config.theme = e.target.value as any as Theme),
+                  );
+                }}
+              >
+                {Object.values(Theme).map((v) => (
+                  <option value={v} key={v}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </ListItem>
 
-        {shouldShowPromptModal && (
-          <UserPromptModal onClose={() => setShowPromptModal(false)} />
+            <ListItem title={Locale.Settings.Lang.Name}>
+              <Select
+                aria-label={Locale.Settings.Lang.Name}
+                value={getLang()}
+                onChange={(e) => {
+                  changeLang(e.target.value as any);
+                }}
+              >
+                {AllLangs.map((lang) => (
+                  <option value={lang} key={lang}>
+                    {ALL_LANG_OPTIONS[lang]}
+                  </option>
+                ))}
+              </Select>
+            </ListItem>
+
+            <ListItem
+              title={Locale.Settings.FontSize.Title}
+              subTitle={Locale.Settings.FontSize.SubTitle}
+            >
+              <InputRange
+                aria={Locale.Settings.FontSize.Title}
+                title={`${config.fontSize ?? 14}px`}
+                value={config.fontSize}
+                min="12"
+                max="40"
+                step="1"
+                onChange={(e) =>
+                  updateConfig(
+                    (config) =>
+                      (config.fontSize = Number.parseInt(
+                        e.currentTarget.value,
+                      )),
+                  )
+                }
+              ></InputRange>
+            </ListItem>
+
+            <ListItem
+              title={Locale.Settings.FontFamily.Title}
+              subTitle={Locale.Settings.FontFamily.SubTitle}
+            >
+              <input
+                aria-label={Locale.Settings.FontFamily.Title}
+                type="text"
+                value={config.fontFamily}
+                placeholder={Locale.Settings.FontFamily.Placeholder}
+                onChange={(e) =>
+                  updateConfig(
+                    (config) => (config.fontFamily = e.currentTarget.value),
+                  )
+                }
+              ></input>
+            </ListItem>
+
+            <ListItem
+              title={Locale.Settings.AutoGenerateTitle.Title}
+              subTitle={Locale.Settings.AutoGenerateTitle.SubTitle}
+            >
+              <input
+                aria-label={Locale.Settings.AutoGenerateTitle.Title}
+                type="checkbox"
+                checked={config.enableAutoGenerateTitle}
+                onChange={(e) =>
+                  updateConfig(
+                    (config) =>
+                      (config.enableAutoGenerateTitle =
+                        e.currentTarget.checked),
+                  )
+                }
+              ></input>
+            </ListItem>
+
+            <ListItem
+              title={Locale.Settings.SendPreviewBubble.Title}
+              subTitle={Locale.Settings.SendPreviewBubble.SubTitle}
+            >
+              <input
+                aria-label={Locale.Settings.SendPreviewBubble.Title}
+                type="checkbox"
+                checked={config.sendPreviewBubble}
+                onChange={(e) =>
+                  updateConfig(
+                    (config) =>
+                      (config.sendPreviewBubble = e.currentTarget.checked),
+                  )
+                }
+              ></input>
+            </ListItem>
+
+            <ListItem
+              title={Locale.Mask.Config.Artifacts.Title}
+              subTitle={Locale.Mask.Config.Artifacts.SubTitle}
+            >
+              <input
+                aria-label={Locale.Mask.Config.Artifacts.Title}
+                type="checkbox"
+                checked={config.enableArtifacts}
+                onChange={(e) =>
+                  updateConfig(
+                    (config) =>
+                      (config.enableArtifacts = e.currentTarget.checked),
+                  )
+                }
+              ></input>
+            </ListItem>
+            <ListItem
+              title={Locale.Mask.Config.CodeFold.Title}
+              subTitle={Locale.Mask.Config.CodeFold.SubTitle}
+            >
+              <input
+                aria-label={Locale.Mask.Config.CodeFold.Title}
+                type="checkbox"
+                checked={config.enableCodeFold}
+                data-testid="enable-code-fold-checkbox"
+                onChange={(e) =>
+                  updateConfig(
+                    (config) =>
+                      (config.enableCodeFold = e.currentTarget.checked),
+                  )
+                }
+              ></input>
+            </ListItem>
+          </List>
         )}
-        <List>
-          <RealtimeConfigList
-            realtimeConfig={config.realtimeConfig}
-            updateConfig={(updater) => {
-              const realtimeConfig = { ...config.realtimeConfig };
-              updater(realtimeConfig);
-              config.update(
-                (config) => (config.realtimeConfig = realtimeConfig),
-              );
-            }}
-          />
-        </List>
-        <List>
-          <TTSConfigList
-            ttsConfig={config.ttsConfig}
-            updateConfig={(updater) => {
-              const ttsConfig = { ...config.ttsConfig };
-              updater(ttsConfig);
-              config.update((config) => (config.ttsConfig = ttsConfig));
-            }}
-          />
-        </List>
 
-        <DangerItems />
+        {activeTab === "sync" && <SyncItems />}
+
+        {activeTab === "account" && (
+          <>
+            {privateOpenAIConfigComponent}
+            <List id={SlotID.CustomModel}>
+              {saasStartComponent}
+              {accessCodeComponent}
+              {userOpenAIKeyComponent}
+
+              {!accessStore.hideUserApiKey && (
+                <>
+                  {useCustomConfigComponent}
+
+                  {accessStore.useCustomConfig && (
+                    <>
+                      <ListItem
+                        title={Locale.Settings.Access.Provider.Title}
+                        subTitle={Locale.Settings.Access.Provider.SubTitle}
+                      >
+                        <Select
+                          aria-label={Locale.Settings.Access.Provider.Title}
+                          value={accessStore.provider}
+                          onChange={(e) => {
+                            accessStore.update(
+                              (access) =>
+                                (access.provider = e.target
+                                  .value as ServiceProvider),
+                            );
+                          }}
+                        >
+                          {Object.entries(ServiceProvider).map(([k, v]) => (
+                            <option value={v} key={k}>
+                              {k}
+                            </option>
+                          ))}
+                        </Select>
+                      </ListItem>
+
+                      {accessStore.provider === ServiceProvider.OpenAI
+                        ? null
+                        : openAIConfigComponent}
+                      {azureConfigComponent}
+                      {googleConfigComponent}
+                      {anthropicConfigComponent}
+                      {baiduConfigComponent}
+                      {byteDanceConfigComponent}
+                      {alibabaConfigComponent}
+                      {tencentConfigComponent}
+                      {moonshotConfigComponent}
+                      {deepseekConfigComponent}
+                      {stabilityConfigComponent}
+                      {lflytekConfigComponent}
+                      {XAIConfigComponent}
+                      {chatglmConfigComponent}
+                      {siliconflowConfigComponent}
+                      {ai302ConfigComponent}
+                    </>
+                  )}
+                </>
+              )}
+
+              {!shouldHideBalanceQuery && !clientConfig?.isApp ? (
+                <ListItem
+                  title={Locale.Settings.Usage.Title}
+                  subTitle={
+                    showUsage
+                      ? loadingUsage
+                        ? Locale.Settings.Usage.IsChecking
+                        : Locale.Settings.Usage.SubTitle(
+                            usage?.used ?? "[?]",
+                            usage?.subscription ?? "[?]",
+                          )
+                      : Locale.Settings.Usage.NoAccess
+                  }
+                >
+                  {!showUsage || loadingUsage ? (
+                    <div />
+                  ) : (
+                    <IconButton
+                      icon={<ResetIcon></ResetIcon>}
+                      text={Locale.Settings.Usage.Check}
+                      onClick={() => checkUsage(true)}
+                    />
+                  )}
+                </ListItem>
+              ) : null}
+            </List>
+          </>
+        )}
+
+        {activeTab === "model" && (
+          <>
+            <List>
+              <ListItem
+                title={Locale.Settings.Access.CustomModel.Title}
+                subTitle={Locale.Settings.Access.CustomModel.SubTitle}
+                vertical={true}
+              >
+                <input
+                  aria-label={Locale.Settings.Access.CustomModel.Title}
+                  style={{
+                    width: "100%",
+                    maxWidth: "unset",
+                    textAlign: "left",
+                  }}
+                  type="text"
+                  value={config.customModels}
+                  placeholder="model1,model2,model3"
+                  onChange={(e) =>
+                    config.update(
+                      (config) => (config.customModels = e.currentTarget.value),
+                    )
+                  }
+                ></input>
+              </ListItem>
+            </List>
+            <List>
+              <ModelConfigList
+                modelConfig={config.modelConfig}
+                updateConfig={(updater) => {
+                  const modelConfig = { ...config.modelConfig };
+                  updater(modelConfig);
+                  config.update((config) => (config.modelConfig = modelConfig));
+                }}
+              />
+            </List>
+
+            <List>
+              <RealtimeConfigList
+                realtimeConfig={config.realtimeConfig}
+                updateConfig={(updater) => {
+                  const realtimeConfig = { ...config.realtimeConfig };
+                  updater(realtimeConfig);
+                  config.update(
+                    (config) => (config.realtimeConfig = realtimeConfig),
+                  );
+                }}
+              />
+            </List>
+            <List>
+              <TTSConfigList
+                ttsConfig={config.ttsConfig}
+                updateConfig={(updater) => {
+                  const ttsConfig = { ...config.ttsConfig };
+                  updater(ttsConfig);
+                  config.update((config) => (config.ttsConfig = ttsConfig));
+                }}
+              />
+            </List>
+          </>
+        )}
+
+        {activeTab === "advanced" && <DangerItems />}
       </div>
     </ErrorBoundary>
   );
