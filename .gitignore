@@ -38,6 +38,8 @@ dev
 
 .vscode
 .idea
+.worktrees/
+.superpowers/
 
 # docker-compose env files
 .env
