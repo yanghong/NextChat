@@ -45,6 +45,7 @@ import {
   ChatMessage,
   createMessage,
   DEFAULT_TOPIC,
+  ModelConfig,
   ModelType,
   SubmitKey,
   useAccessStore,
@@ -103,7 +104,7 @@ import {
   UNFINISHED_INPUT,
 } from "../constant";
 import { Avatar } from "./emoji";
-import { MaskConfig } from "./mask";
+import { ModelConfigList } from "./model-config";
 import { useChatCommand, useCommand } from "../command";
 import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
@@ -238,6 +239,24 @@ const MCPAction = () => {
 export function SessionConfigModel(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
+  const globalConfig = useAppConfig();
+
+  const updateSessionMask = (updater: (mask: typeof session.mask) => void) => {
+    chatStore.updateTargetSession(session, (session) => {
+      const mask = { ...session.mask };
+      updater(mask);
+      session.mask = mask;
+    });
+  };
+
+  const updateModelConfig = (updater: (config: ModelConfig) => void) => {
+    const modelConfig = { ...session.mask.modelConfig };
+    updater(modelConfig);
+    updateSessionMask((mask) => {
+      mask.modelConfig = modelConfig;
+      mask.syncGlobalConfig = false;
+    });
+  };
 
   return (
     <div className="modal-mask">
@@ -261,29 +280,86 @@ export function SessionConfigModel(props: { onClose: () => void }) {
           />,
         ]}
       >
-        <MaskConfig
-          mask={session.mask}
-          updateMask={(updater) => {
-            const mask = { ...session.mask };
-            updater(mask);
-            chatStore.updateTargetSession(
-              session,
-              (session) => (session.mask = mask),
-            );
-          }}
-          shouldSyncFromGlobal
-          extraListItems={
-            session.mask.modelConfig.sendMemory ? (
-              <ListItem
-                className="copyable"
-                title={`${Locale.Memory.Title} (${session.lastSummarizeIndex} of ${session.messages.length})`}
-                subTitle={session.memoryPrompt || Locale.Memory.EmptyContent}
-              ></ListItem>
-            ) : (
-              <></>
-            )
-          }
-        ></MaskConfig>
+        <List>
+          <ListItem
+            title={Locale.Mask.Config.Sync.Title}
+            subTitle={Locale.Mask.Config.Sync.SubTitle}
+          >
+            <input
+              aria-label={Locale.Mask.Config.Sync.Title}
+              type="checkbox"
+              checked={session.mask.syncGlobalConfig}
+              onChange={async (e) => {
+                const checked = e.currentTarget.checked;
+                if (
+                  checked &&
+                  (await showConfirm(Locale.Mask.Config.Sync.Confirm))
+                ) {
+                  updateSessionMask((mask) => {
+                    mask.syncGlobalConfig = checked;
+                    mask.modelConfig = { ...globalConfig.modelConfig };
+                  });
+                } else if (!checked) {
+                  updateSessionMask((mask) => {
+                    mask.syncGlobalConfig = checked;
+                  });
+                }
+              }}
+            ></input>
+          </ListItem>
+
+          {globalConfig.enableArtifacts && (
+            <ListItem
+              title={Locale.Mask.Config.Artifacts.Title}
+              subTitle={Locale.Mask.Config.Artifacts.SubTitle}
+            >
+              <input
+                aria-label={Locale.Mask.Config.Artifacts.Title}
+                type="checkbox"
+                checked={session.mask.enableArtifacts !== false}
+                onChange={(e) => {
+                  updateSessionMask((mask) => {
+                    mask.enableArtifacts = e.currentTarget.checked;
+                  });
+                }}
+              ></input>
+            </ListItem>
+          )}
+
+          {globalConfig.enableCodeFold && (
+            <ListItem
+              title={Locale.Mask.Config.CodeFold.Title}
+              subTitle={Locale.Mask.Config.CodeFold.SubTitle}
+            >
+              <input
+                aria-label={Locale.Mask.Config.CodeFold.Title}
+                type="checkbox"
+                checked={session.mask.enableCodeFold !== false}
+                onChange={(e) => {
+                  updateSessionMask((mask) => {
+                    mask.enableCodeFold = e.currentTarget.checked;
+                  });
+                }}
+              ></input>
+            </ListItem>
+          )}
+        </List>
+
+        <List>
+          <ModelConfigList
+            modelConfig={{ ...session.mask.modelConfig }}
+            updateConfig={updateModelConfig}
+          />
+          {session.mask.modelConfig.sendMemory ? (
+            <ListItem
+              className="copyable"
+              title={`${Locale.Memory.Title} (${session.lastSummarizeIndex} of ${session.messages.length})`}
+              subTitle={session.memoryPrompt || Locale.Memory.EmptyContent}
+            ></ListItem>
+          ) : (
+            <></>
+          )}
+        </List>
       </Modal>
     </div>
   );

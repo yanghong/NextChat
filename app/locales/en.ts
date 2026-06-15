@@ -90,7 +90,7 @@ const en: LocaleType = {
       if (submitKey === String(SubmitKey.Enter)) {
         inputHints += ", Shift + Enter to wrap";
       }
-      return inputHints + ", / to search prompts, : to use commands";
+      return inputHints + ", : to use commands";
     },
     Send: "Send",
     StartSpeak: "Start Speak",
