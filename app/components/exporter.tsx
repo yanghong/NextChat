@@ -38,7 +38,6 @@ import { EXPORT_MESSAGE_CLASS_NAME } from "../constant";
 import { getClientConfig } from "../config/client";
 import { type ClientApi, getClientApi } from "../client/api";
 import { getMessageTextContent } from "../utils";
-import { MaskAvatar } from "./mask";
 import clsx from "clsx";
 
 const Markdown = dynamic(async () => (await import("./markdown")).Markdown, {
@@ -155,7 +154,6 @@ export function MessageExporter() {
 
   const [exportConfig, setExportConfig] = useState({
     format: "image" as ExportFormat,
-    includeContext: true,
   });
 
   function updateExportConfig(updater: (config: typeof exportConfig) => void) {
@@ -168,18 +166,8 @@ export function MessageExporter() {
   const session = chatStore.currentSession();
   const { selection, updateSelection } = useMessageSelector();
   const selectedMessages = useMemo(() => {
-    const ret: ChatMessage[] = [];
-    if (exportConfig.includeContext) {
-      ret.push(...session.mask.context);
-    }
-    ret.push(...session.messages.filter((m) => selection.has(m.id)));
-    return ret;
-  }, [
-    exportConfig.includeContext,
-    session.messages,
-    session.mask.context,
-    selection,
-  ]);
+    return session.messages.filter((m) => selection.has(m.id));
+  }, [session.messages, selection]);
   function preview() {
     if (exportConfig.format === "text") {
       return (
@@ -226,20 +214,6 @@ export function MessageExporter() {
                 </option>
               ))}
             </Select>
-          </ListItem>
-          <ListItem
-            title={Locale.Export.IncludeContext.Title}
-            subTitle={Locale.Export.IncludeContext.SubTitle}
-          >
-            <input
-              type="checkbox"
-              checked={exportConfig.includeContext}
-              onChange={(e) => {
-                updateExportConfig(
-                  (config) => (config.includeContext = e.currentTarget.checked),
-                );
-              }}
-            ></input>
           </ListItem>
         </List>
         <MessageSelector
@@ -527,12 +501,9 @@ export function ImagePreviewer(props: {
             <div className={styles["main-title"]}>Hongai</div>
             <div className={styles["sub-title"]}>www.hongai.store</div>
             <div className={styles["icons"]}>
-              <MaskAvatar avatar={config.avatar} />
+              <Avatar avatar={config.avatar} />
               <span className={styles["icon-space"]}>&</span>
-              <MaskAvatar
-                avatar={mask.avatar}
-                model={session.mask.modelConfig.model}
-              />
+              <Avatar avatar="gpt-bot" />
             </div>
           </div>
           <div>
@@ -563,10 +534,7 @@ export function ImagePreviewer(props: {
                 {m.role === "user" ? (
                   <Avatar avatar={config.avatar}></Avatar>
                 ) : (
-                  <MaskAvatar
-                    avatar={session.mask.avatar}
-                    model={m.model || session.mask.modelConfig.model}
-                  />
+                  <Avatar avatar="gpt-bot" />
                 )}
               </div>
 

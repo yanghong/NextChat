@@ -20,15 +20,12 @@ import SpeakIcon from "../icons/speak.svg";
 import SpeakStopIcon from "../icons/speak-stop.svg";
 import LoadingIcon from "../icons/three-dots.svg";
 import LoadingButtonIcon from "../icons/loading.svg";
-import PromptIcon from "../icons/prompt.svg";
-import MaskIcon from "../icons/mask.svg";
 import MaxIcon from "../icons/max.svg";
 import MinIcon from "../icons/min.svg";
 import ResetIcon from "../icons/reload.svg";
 import ReloadIcon from "../icons/reload.svg";
 import SettingsIcon from "../icons/chat-settings.svg";
 import DeleteIcon from "../icons/clear.svg";
-import PinIcon from "../icons/pin.svg";
 import ConfirmIcon from "../icons/confirm.svg";
 import CloseIcon from "../icons/close.svg";
 import CancelIcon from "../icons/cancel.svg";
@@ -79,7 +76,6 @@ import dynamic from "next/dynamic";
 
 import { ChatControllerPool } from "../client/controller";
 import { DalleStyle, ModelSize } from "../typing";
-import { Prompt, usePromptStore } from "../store/prompt";
 import Locale from "../locales";
 
 import { IconButton } from "./button";
@@ -107,9 +103,8 @@ import {
   UNFINISHED_INPUT,
 } from "../constant";
 import { Avatar } from "./emoji";
-import { ContextPrompts, MaskAvatar, MaskConfig } from "./mask";
-import { useMaskStore } from "../store/mask";
-import { ChatCommandPrefix, useChatCommand, useCommand } from "../command";
+import { MaskConfig } from "./mask";
+import { useChatCommand, useCommand } from "../command";
 import { prettyObject } from "../utils/format";
 import { ExportMessageModal } from "./exporter";
 import { getClientConfig } from "../config/client";
@@ -243,8 +238,6 @@ const MCPAction = () => {
 export function SessionConfigModel(props: { onClose: () => void }) {
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
-  const maskStore = useMaskStore();
-  const navigate = useNavigate();
 
   return (
     <div className="modal-mask">
@@ -264,18 +257,6 @@ export function SessionConfigModel(props: { onClose: () => void }) {
                   (session) => (session.memoryPrompt = ""),
                 );
               }
-            }}
-          />,
-          <IconButton
-            key="copy"
-            icon={<CopyIcon />}
-            bordered
-            text={Locale.Chat.Config.SaveAs}
-            onClick={() => {
-              navigate(Path.Masks);
-              setTimeout(() => {
-                maskStore.create(session.mask);
-              }, 500);
             }}
           />,
         ]}
@@ -304,36 +285,6 @@ export function SessionConfigModel(props: { onClose: () => void }) {
           }
         ></MaskConfig>
       </Modal>
-    </div>
-  );
-}
-
-function PromptToast(props: {
-  showToast?: boolean;
-  showModal?: boolean;
-  setShowModal: (_: boolean) => void;
-}) {
-  const chatStore = useChatStore();
-  const session = chatStore.currentSession();
-  const context = session.mask.context;
-
-  return (
-    <div className={styles["prompt-toast"]} key="prompt-toast">
-      {props.showToast && context.length > 0 && (
-        <div
-          className={clsx(styles["prompt-toast-inner"], "clickable")}
-          role="button"
-          onClick={() => props.setShowModal(true)}
-        >
-          <BrainIcon />
-          <span className={styles["prompt-toast-content"]}>
-            {Locale.Context.Toast(context.length)}
-          </span>
-        </div>
-      )}
-      {props.showModal && (
-        <SessionConfigModel onClose={() => props.setShowModal(false)} />
-      )}
     </div>
   );
 }
@@ -383,78 +334,6 @@ function useSubmitHandler() {
     submitKey,
     shouldSubmit,
   };
-}
-
-export type RenderPrompt = Pick<Prompt, "title" | "content">;
-
-export function PromptHints(props: {
-  prompts: RenderPrompt[];
-  onPromptSelect: (prompt: RenderPrompt) => void;
-}) {
-  const noPrompts = props.prompts.length === 0;
-  const [selectIndex, setSelectIndex] = useState(0);
-  const selectedRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setSelectIndex(0);
-  }, [props.prompts.length]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (noPrompts || e.metaKey || e.altKey || e.ctrlKey) {
-        return;
-      }
-      // arrow up / down to select prompt
-      const changeIndex = (delta: number) => {
-        e.stopPropagation();
-        e.preventDefault();
-        const nextIndex = Math.max(
-          0,
-          Math.min(props.prompts.length - 1, selectIndex + delta),
-        );
-        setSelectIndex(nextIndex);
-        selectedRef.current?.scrollIntoView({
-          block: "center",
-        });
-      };
-
-      if (e.key === "ArrowUp") {
-        changeIndex(1);
-      } else if (e.key === "ArrowDown") {
-        changeIndex(-1);
-      } else if (e.key === "Enter") {
-        const selectedPrompt = props.prompts.at(selectIndex);
-        if (selectedPrompt) {
-          props.onPromptSelect(selectedPrompt);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.prompts.length, selectIndex]);
-
-  if (noPrompts) return null;
-  return (
-    <div className={styles["prompt-hints"]}>
-      {props.prompts.map((prompt, i) => (
-        <div
-          ref={i === selectIndex ? selectedRef : null}
-          className={clsx(styles["prompt-hint"], {
-            [styles["prompt-hint-selected"]]: i === selectIndex,
-          })}
-          key={prompt.title + i.toString()}
-          onClick={() => props.onPromptSelect(prompt)}
-          onMouseEnter={() => setSelectIndex(i)}
-        >
-          <div className={styles["hint-title"]}>{prompt.title}</div>
-          <div className={styles["hint-content"]}>{prompt.content}</div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 function ClearContextDivider() {
@@ -573,17 +452,14 @@ export function ChatActions(props: {
   uploadImage: () => void;
   setAttachImages: (images: string[]) => void;
   setUploading: (uploading: boolean) => void;
-  showPromptModal: () => void;
+  showSessionConfig: () => void;
   scrollToBottom: () => void;
-  showPromptHints: () => void;
   hitBottom: boolean;
   uploading: boolean;
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
-  setUserInput: (input: string) => void;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const config = useAppConfig();
-  const navigate = useNavigate();
   const chatStore = useChatStore();
   const session = chatStore.currentSession();
   const previousChatModelRef = useRef<{
@@ -769,7 +645,7 @@ export function ChatActions(props: {
         )}
         {props.hitBottom && (
           <ChatAction
-            onClick={props.showPromptModal}
+            onClick={props.showSessionConfig}
             text={Locale.Chat.InputActions.Settings}
             icon={<SettingsIcon />}
           />
@@ -782,20 +658,6 @@ export function ChatActions(props: {
             icon={props.uploading ? <LoadingButtonIcon /> : <ImageIcon />}
           />
         )}
-        <ChatAction
-          onClick={props.showPromptHints}
-          text={Locale.Chat.InputActions.Prompt}
-          icon={<PromptIcon />}
-        />
-
-        <ChatAction
-          onClick={() => {
-            navigate(Path.Masks);
-          }}
-          text={Locale.Chat.InputActions.Masks}
-          icon={<MaskIcon />}
-        />
-
         <ChatAction
           onClick={() => setShowModelSelector(true)}
           text={currentModelName}
@@ -1039,14 +901,28 @@ export function EditMessageModal(props: { onClose: () => void }) {
             ></input>
           </ListItem>
         </List>
-        <ContextPrompts
-          context={messages}
-          updateContext={(updater) => {
-            const newMessages = messages.slice();
-            updater(newMessages);
-            setMessages(newMessages);
-          }}
-        />
+        <List>
+          {messages.map((message, index) => (
+            <ListItem
+              key={message.id}
+              title={`${index + 1}. ${message.role}`}
+              vertical
+            >
+              <textarea
+                value={getMessageTextContent(message)}
+                rows={4}
+                onChange={(e) => {
+                  const nextMessages = messages.slice();
+                  nextMessages[index] = {
+                    ...message,
+                    content: e.currentTarget.value,
+                  };
+                  setMessages(nextMessages);
+                }}
+              />
+            </ListItem>
+          ))}
+        </List>
       </Modal>
     </div>
   );
@@ -1176,18 +1052,6 @@ function _Chat() {
   const [uploading, setUploading] = useState(false);
   const [showUserApiKeyModal, setShowUserApiKeyModal] = useState(false);
 
-  // prompt hints
-  const promptStore = usePromptStore();
-  const [promptHints, setPromptHints] = useState<RenderPrompt[]>([]);
-  const onSearch = useDebouncedCallback(
-    (text: string) => {
-      const matchedPrompts = promptStore.search(text);
-      setPromptHints(matchedPrompts);
-    },
-    100,
-    { leading: true, trailing: true },
-  );
-
   // auto grow input
   const [inputRows, setInputRows] = useState(2);
   const measure = useDebouncedCallback(
@@ -1212,7 +1076,6 @@ function _Chat() {
   // chat commands shortcuts
   const chatCommands = useChatCommand({
     new: () => chatStore.newSession(),
-    newm: () => navigate(Path.NewChat),
     prev: () => chatStore.nextSession(-1),
     next: () => chatStore.nextSession(1),
     clear: () =>
@@ -1224,24 +1087,8 @@ function _Chat() {
     del: () => chatStore.deleteSession(chatStore.currentSessionIndex),
   });
 
-  // only search prompts when user input is short
-  const SEARCH_TEXT_LIMIT = 30;
   const onInput = (text: string) => {
     setUserInput(text);
-    const n = text.trim().length;
-
-    // clear search results
-    if (n === 0) {
-      setPromptHints([]);
-    } else if (text.match(ChatCommandPrefix)) {
-      setPromptHints(chatCommands.search(text));
-    } else if (!config.disablePromptHint && n < SEARCH_TEXT_LIMIT) {
-      // check if need to trigger auto completion
-      if (text.startsWith("/")) {
-        let searchText = text.slice(1);
-        onSearch(searchText);
-      }
-    }
   };
 
   const doSubmit = (userInput: string) => {
@@ -1249,7 +1096,6 @@ function _Chat() {
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
-      setPromptHints([]);
       matchCommand.invoke();
       return;
     }
@@ -1274,26 +1120,8 @@ function _Chat() {
     setAttachImages([]);
     chatStore.setLastInput(submittedInput);
     setUserInput("");
-    setPromptHints([]);
     if (!isMobileScreen) inputRef.current?.focus();
     setAutoScroll(true);
-  };
-
-  const onPromptSelect = (prompt: RenderPrompt) => {
-    setTimeout(() => {
-      setPromptHints([]);
-
-      const matchedChatCommand = chatCommands.match(prompt.content);
-      if (matchedChatCommand.matched) {
-        // if user is selecting a chat command, just trigger it
-        matchedChatCommand.invoke();
-        setUserInput("");
-      } else {
-        // or fill the prompt
-        setUserInput(prompt.content);
-      }
-      inputRef.current?.focus();
-    }, 30);
   };
 
   // stop response
@@ -1342,7 +1170,7 @@ function _Chat() {
       e.preventDefault();
       return;
     }
-    if (shouldSubmit(e) && promptHints.length === 0) {
+    if (shouldSubmit(e)) {
       doSubmit(userInput);
       e.preventDefault();
     }
@@ -1426,19 +1254,6 @@ function _Chat() {
     inputRef.current?.focus();
   };
 
-  const onPinMessage = (message: ChatMessage) => {
-    chatStore.updateTargetSession(session, (session) =>
-      session.mask.context.push(message),
-    );
-
-    showToast(Locale.Chat.Actions.PinToastContent, {
-      text: Locale.Chat.Actions.PinToastAction,
-      onClick: () => {
-        setShowPromptModal(true);
-      },
-    });
-  };
-
   const accessStore = useAccessStore();
   const [speechStatus, setSpeechStatus] = useState(false);
   const [speechLoading, setSpeechLoading] = useState(false);
@@ -1486,24 +1301,21 @@ function _Chat() {
     }
   }
 
-  const context: RenderMessage[] = useMemo(() => {
-    return session.mask.hideContext ? [] : session.mask.context.slice();
-  }, [session.mask.context, session.mask.hideContext]);
+  const welcomeMessages: RenderMessage[] = useMemo(() => {
+    if (session.messages.at(0)?.content === BOT_HELLO.content) {
+      return [];
+    }
 
-  if (
-    context.length === 0 &&
-    session.messages.at(0)?.content !== BOT_HELLO.content
-  ) {
     const copiedHello = Object.assign({}, BOT_HELLO);
     if (!accessStore.isAuthorized()) {
       copiedHello.content = Locale.Error.Unauthorized;
     }
-    context.push(copiedHello);
-  }
+    return [copiedHello];
+  }, [accessStore, session.messages]);
 
   // preview messages
   const renderMessages = useMemo(() => {
-    return context
+    return welcomeMessages
       .concat(session.messages as RenderMessage[])
       .concat(
         isLoading
@@ -1533,10 +1345,10 @@ function _Chat() {
       );
   }, [
     config.sendPreviewBubble,
-    context,
     isLoading,
     session.messages,
     userInput,
+    welcomeMessages,
   ]);
 
   const [msgRenderIndex, _setMsgRenderIndex] = useState(
@@ -1584,13 +1396,13 @@ function _Chat() {
     scrollDomToBottom();
   }
 
-  // clear context index = context length + index in messages
+  // clear context index = welcome message count + index in messages
   const clearContextIndex =
     (session.clearContextIndex ?? -1) >= 0
-      ? session.clearContextIndex! + context.length - msgRenderIndex
+      ? session.clearContextIndex! + welcomeMessages.length - msgRenderIndex
       : -1;
 
-  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [showSessionConfig, setShowSessionConfig] = useState(false);
 
   const clientConfig = useMemo(() => getClientConfig(), []);
 
@@ -1918,11 +1730,9 @@ function _Chat() {
             )}
           </div>
 
-          <PromptToast
-            showToast={!hitBottom}
-            showModal={showPromptModal}
-            setShowModal={setShowPromptModal}
-          />
+          {showSessionConfig && (
+            <SessionConfigModel onClose={() => setShowSessionConfig(false)} />
+          )}
         </div>
         <div className={styles["chat-main"]}>
           <div className={styles["chat-body-container"]}>
@@ -1941,11 +1751,11 @@ function _Chat() {
                 // .filter((m) => !m.isMcpResponse)
                 .map((message, i) => {
                   const isUser = message.role === "user";
-                  const isContext = i < context.length;
+                  const isWelcome = i < welcomeMessages.length;
                   const showActions =
                     i > 0 &&
                     !(message.preview || message.content.length === 0) &&
-                    !isContext;
+                    !isWelcome;
                   const showTyping = message.preview || message.streaming;
 
                   const shouldShowClearContextDivider =
@@ -1993,9 +1803,9 @@ function _Chat() {
                                     chatStore.updateTargetSession(
                                       session,
                                       (session) => {
-                                        const m = session.mask.context
-                                          .concat(session.messages)
-                                          .find((m) => m.id === message.id);
+                                        const m = session.messages.find(
+                                          (m) => m.id === message.id,
+                                        );
                                         if (m) {
                                           m.content = newContent;
                                         }
@@ -2011,13 +1821,7 @@ function _Chat() {
                                   {["system"].includes(message.role) ? (
                                     <Avatar avatar="2699-fe0f" />
                                   ) : (
-                                    <MaskAvatar
-                                      avatar={session.mask.avatar}
-                                      model={
-                                        message.model ||
-                                        session.mask.modelConfig.model
-                                      }
-                                    />
+                                    <Avatar avatar="gpt-bot" />
                                   )}
                                 </>
                               )}
@@ -2055,11 +1859,6 @@ function _Chat() {
                                         }
                                       />
 
-                                      <ChatAction
-                                        text={Locale.Chat.Actions.Pin}
-                                        icon={<PinIcon />}
-                                        onClick={() => onPinMessage(message)}
-                                      />
                                       <ChatAction
                                         text={Locale.Chat.Actions.Copy}
                                         icon={<CopyIcon />}
@@ -2188,9 +1987,7 @@ function _Chat() {
                           )}
 
                           <div className={styles["chat-message-action-date"]}>
-                            {isContext
-                              ? Locale.Chat.IsContext
-                              : message.date.toLocaleString()}
+                            {message.date.toLocaleString()}
                           </div>
                         </div>
                       </div>
@@ -2200,32 +1997,15 @@ function _Chat() {
                 })}
             </div>
             <div className={styles["chat-input-panel"]}>
-              <PromptHints
-                prompts={promptHints}
-                onPromptSelect={onPromptSelect}
-              />
-
               <ChatActions
                 uploadImage={uploadImage}
                 setAttachImages={setAttachImages}
                 setUploading={setUploading}
-                showPromptModal={() => setShowPromptModal(true)}
+                showSessionConfig={() => setShowSessionConfig(true)}
                 scrollToBottom={scrollToBottom}
                 hitBottom={hitBottom}
                 uploading={uploading}
-                showPromptHints={() => {
-                  // Click again to close
-                  if (promptHints.length > 0) {
-                    setPromptHints([]);
-                    return;
-                  }
-
-                  inputRef.current?.focus();
-                  setUserInput("/");
-                  onSearch("");
-                }}
                 setShowShortcutKeyModal={setShowShortcutKeyModal}
-                setUserInput={setUserInput}
                 setShowChatSidePanel={setShowChatSidePanel}
               />
               <label
