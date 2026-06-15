@@ -2,7 +2,7 @@
 
 require("../polyfill");
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./home.module.scss";
 
 import BotIcon from "../icons/bot.svg";
@@ -52,14 +52,6 @@ const Settings = dynamic(async () => (await import("./settings")).Settings, {
 });
 
 const Chat = dynamic(async () => (await import("./chat")).Chat, {
-  loading: () => <Loading noLogo />,
-});
-
-const NewChat = dynamic(async () => (await import("./new-chat")).NewChat, {
-  loading: () => <Loading noLogo />,
-});
-
-const MaskPage = dynamic(async () => (await import("./mask")).MaskPage, {
   loading: () => <Loading noLogo />,
 });
 
@@ -160,6 +152,31 @@ export function WindowContent(props: { children: React.ReactNode }) {
   );
 }
 
+function LegacyNewChatRedirect() {
+  const navigate = useNavigate();
+  const newSession = useChatStore((state) => state.newSession);
+  const createdRef = useRef(false);
+
+  useEffect(() => {
+    if (createdRef.current) return;
+    createdRef.current = true;
+    newSession();
+    navigate(Path.Chat, { replace: true });
+  }, [newSession, navigate]);
+
+  return <Loading noLogo />;
+}
+
+function LegacyMasksRedirect() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    navigate(Path.Chat, { replace: true });
+  }, [navigate]);
+
+  return <Loading noLogo />;
+}
+
 function Screen() {
   const config = useAppConfig();
   const location = useLocation();
@@ -245,8 +262,8 @@ function Screen() {
         <WindowContent>
           <Routes>
             <Route path={Path.Home} element={<Chat />} />
-            <Route path={Path.NewChat} element={<NewChat />} />
-            <Route path={Path.Masks} element={<MaskPage />} />
+            <Route path={Path.NewChat} element={<LegacyNewChatRedirect />} />
+            <Route path={Path.Masks} element={<LegacyMasksRedirect />} />
             <Route path={Path.Plugins} element={<PluginPage />} />
             <Route path={Path.SearchChat} element={<SearchChat />} />
             <Route path={Path.Chat} element={<Chat />} />
