@@ -39,7 +39,7 @@ import { estimateTokenLength } from "../utils/token";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
 import { useAccessStore } from "./access";
 import { collectModelsWithDefaultModel } from "../utils/model";
-import { createEmptyMask, Mask } from "./mask";
+import { createEmptyMask, DEFAULT_MASK_AVATAR, Mask } from "./mask";
 import { executeMcpAction, getAllTools, isMcpEnabled } from "../mcp/actions";
 import { extractMcpJson, isMcpJson } from "../mcp/utils";
 
@@ -109,8 +109,33 @@ export const BOT_HELLO: ChatMessage = createMessage({
   content: Locale.Store.BotHello,
 });
 
+function normalizeSessionMask(session: ChatSession): ChatSession {
+  const fallbackMask = createEmptyMask();
+  const modelConfig = session.mask?.modelConfig;
+
+  session.mask = {
+    ...fallbackMask,
+    ...session.mask,
+    name: DEFAULT_TOPIC,
+    avatar: DEFAULT_MASK_AVATAR,
+    context: [],
+    hideContext: false,
+    syncGlobalConfig: true,
+    modelConfig: {
+      ...fallbackMask.modelConfig,
+      ...modelConfig,
+    },
+  };
+
+  return session;
+}
+
+function normalizeSessions(sessions: ChatSession[]): ChatSession[] {
+  return sessions.map((session) => normalizeSessionMask(session));
+}
+
 function createEmptySession(): ChatSession {
-  return {
+  return normalizeSessionMask({
     id: nanoid(),
     topic: DEFAULT_TOPIC,
     memoryPrompt: "",
@@ -124,7 +149,7 @@ function createEmptySession(): ChatSession {
     lastSummarizeIndex: 0,
 
     mask: createEmptyMask(),
-  };
+  });
 }
 
 function getSummarizeModel(
@@ -316,22 +341,8 @@ export const useChatStore = createPersistStore(
         void get().saveRemoteSessions();
       },
 
-      newSession(mask?: Mask) {
+      newSession(_mask?: Mask) {
         const session = createEmptySession();
-
-        if (mask) {
-          const config = useAppConfig.getState();
-          const globalModelConfig = config.modelConfig;
-
-          session.mask = {
-            ...mask,
-            modelConfig: {
-              ...globalModelConfig,
-              ...mask.modelConfig,
-            },
-          };
-          session.topic = mask.name;
-        }
 
         set((state) => ({
           currentSessionIndex: 0,
@@ -870,15 +881,18 @@ export const useChatStore = createPersistStore(
         localStorage.clear();
         location.reload();
       },
-      async loadRemoteSessions() {
-        try {
-          const remoteSessions = await fetchRemoteChatSessions();
-          if (!remoteSessions) return false;
+          async loadRemoteSessions() {
+            try {
+              const remoteSessions = await fetchRemoteChatSessions();
+              if (!remoteSessions) return false;
 
-          const sessions =
-            remoteSessions.length > 0 ? remoteSessions : [createEmptySession()];
-          set(() => ({
-            sessions,
+              const sessions = normalizeSessions(
+                remoteSessions.length > 0
+                  ? remoteSessions
+                  : [createEmptySession()],
+              );
+              set(() => ({
+                sessions,
             currentSessionIndex: 0,
             serverSessionsLoaded: true,
           }));
@@ -946,7 +960,7 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.5,
+    version: 3.6,
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -1025,10 +1039,20 @@ export const useChatStore = createPersistStore(
           s.mask.modelConfig.webSearch = config.modelConfig.webSearch ?? true;
           s.mask.modelConfig.webSearchContextSize =
             config.modelConfig.webSearchContextSize ?? "low";
-        });
+          });
+      }
+
+      if (version < 3.6) {
+        newState.sessions = normalizeSessions(newState.sessions);
       }
 
       return newState as any;
+    },
+    onRehydrateStorage() {
+      return (state) => {
+        if (!state?.sessions) return;
+        state.sessions = normalizeSessions(state.sessions);
+      };
     },
   },
 );
