@@ -115,6 +115,17 @@ export const BOT_HELLO: ChatMessage = createMessage({
   content: Locale.Store.BotHello,
 });
 
+const LEARNING_PHASES = [
+  "diagnosing",
+  "planning",
+  "learning",
+  "reviewing",
+] as const;
+
+function isLearningPhase(phase: unknown): phase is LearningModeState["phase"] {
+  return LEARNING_PHASES.includes(phase as LearningModeState["phase"]);
+}
+
 function normalizeSessionMask(session: ChatSession): ChatSession {
   const fallbackMask = createEmptyMask();
   const modelConfig = session.mask?.modelConfig;
@@ -141,7 +152,9 @@ function normalizeSessionLearning(session: ChatSession): ChatSession {
 
   session.learning = {
     enabled: Boolean(session.learning.enabled),
-    phase: session.learning.phase ?? "diagnosing",
+    phase: isLearningPhase(session.learning.phase)
+      ? session.learning.phase
+      : "diagnosing",
     initialIntent: session.learning.initialIntent ?? "",
     summary: session.learning.summary ?? "",
     updatedAt: session.learning.updatedAt ?? Date.now(),
@@ -403,7 +416,10 @@ export const useChatStore = createPersistStore(
       updateLearningMode(updater: (learning: LearningModeState) => void) {
         const session = get().currentSession();
         get().updateTargetSession(session, (session) => {
-          const learning = session.learning ?? createDefaultLearningMode();
+          const learning = session.learning ?? {
+            ...createDefaultLearningMode(),
+            enabled: false,
+          };
           updater(learning);
           learning.updatedAt = Date.now();
           session.learning = learning;

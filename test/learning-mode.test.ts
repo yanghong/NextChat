@@ -6,6 +6,7 @@ import {
 } from "../app/utils/learning";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { useChatStore } from "../app/store/chat";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
@@ -121,6 +122,10 @@ describe("learning mode utilities", () => {
 });
 
 describe("learning mode chat store integration", () => {
+  beforeEach(() => {
+    useChatStore.getState().clearSessions();
+  });
+
   test("chat sessions carry learning mode metadata", () => {
     const source = read("app/store/chat.ts");
 
@@ -144,5 +149,73 @@ describe("learning mode chat store integration", () => {
     expect(source).toContain("buildLearningSystemPrompt");
     expect(source).toContain("session.learning?.enabled");
     expect(source).toContain("[Learning Mode System Prompt]");
+  });
+
+  test("startLearningMode enables learning and stores the initial intent", () => {
+    useChatStore.getState().startLearningMode("React");
+
+    expect(useChatStore.getState().currentSession().learning).toMatchObject({
+      enabled: true,
+      phase: "diagnosing",
+      initialIntent: "React",
+    });
+  });
+
+  test("stopLearningMode creates disabled learning state when none exists", () => {
+    expect(useChatStore.getState().currentSession().learning).toBeUndefined();
+
+    useChatStore.getState().stopLearningMode();
+
+    expect(useChatStore.getState().currentSession().learning).toMatchObject({
+      enabled: false,
+      phase: "diagnosing",
+    });
+  });
+
+  test("updateLearningMode does not enable missing learning state by default", () => {
+    useChatStore.getState().updateLearningMode((learning) => {
+      learning.summary = "Knows components";
+    });
+
+    expect(useChatStore.getState().currentSession().learning).toMatchObject({
+      enabled: false,
+      phase: "diagnosing",
+      summary: "Knows components",
+    });
+  });
+
+  test("updateLearningMode can explicitly enable missing learning state", () => {
+    useChatStore.getState().updateLearningMode((learning) => {
+      learning.enabled = true;
+      learning.initialIntent = "TypeScript";
+    });
+
+    expect(useChatStore.getState().currentSession().learning).toMatchObject({
+      enabled: true,
+      initialIntent: "TypeScript",
+    });
+  });
+
+  test("getMessagesWithMemory appends learning prompt to existing system prompt", async () => {
+    const store = useChatStore.getState();
+    const session = store.currentSession();
+
+    store.updateTargetSession(session, (session) => {
+      session.mask.modelConfig.model = "gpt-4o";
+      session.mask.modelConfig.enableInjectSystemPrompts = true;
+    });
+    store.startLearningMode("React");
+
+    const messages = await useChatStore.getState().getMessagesWithMemory();
+    const systemPrompt = messages[0];
+    const content = String(systemPrompt.content);
+
+    expect(systemPrompt.role).toBe("system");
+    expect(content).toContain("You are ChatGPT");
+    expect(content).toContain("你是学习导师");
+    expect(content).toContain("React");
+    expect(content.indexOf("You are ChatGPT")).toBeLessThan(
+      content.indexOf("你是学习导师"),
+    );
   });
 });
