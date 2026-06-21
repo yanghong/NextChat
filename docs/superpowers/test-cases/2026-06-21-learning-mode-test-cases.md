@@ -15,7 +15,7 @@ In scope:
 - Learning mode exit through `/退出学习`, `/exit-learn`, and the learning status bar exit button.
 - Slash command boundary behavior, including non-trigger cases such as `/学习React` and `/learnPython`.
 - Coexistence with existing global system prompts and MCP system prompts.
-- Session persistence and compatibility with old or abnormal learning state data.
+- Session persistence and compatibility with old or abnormal locally persisted learning state data.
 - Mobile layout safety around the status bar, input box, and action buttons.
 - Regression coverage for normal chat, attachments, drafts, and API-key-missing behavior.
 
@@ -38,7 +38,7 @@ Out of scope:
 | Exit behavior | Slash exit and status bar exit stop learning mode | TC-008, TC-009 |
 | Exit side effects | `/退出学习` does not call model and clears input/attachments | TC-008 |
 | Prompt coexistence | Learning system prompt coexists with global/MCP prompts; exits cleanly | TC-010 |
-| Compatibility | Old, missing, malformed, or remote abnormal learning data does not crash | TC-011 |
+| Compatibility | Old, missing, or malformed locally persisted learning data does not crash | TC-011 |
 | Error path | API key missing follows existing error path and preserves learning state/draft | TC-012 |
 | Mobile regression | Status bar does not cover input or actions on mobile | TC-009 |
 | Normal chat regression | Existing chat, send, attachment, and command behavior continue to work | TC-003, TC-012 |
@@ -314,7 +314,7 @@ Expected results:
 - After exit, no `system` message contains the learning mentor guidance text or the serialized learning context block.
 - Global and MCP prompts continue to behave as they did before learning mode.
 
-### TC-011 - Old, Missing, Or Abnormal Learning Data Compatibility
+### TC-011 - Old, Missing, Or Abnormal Local Learning Data Compatibility
 
 Priority: P0
 
@@ -336,7 +336,7 @@ Steps:
 Expected results:
 - The app does not crash for missing learning data.
 - The app does not crash for old learning data shape.
-- The app does not crash for abnormal remote learning state.
+- The app does not crash for abnormal locally persisted learning state.
 - Invalid or unknown learning data is safely ignored, migrated, or normalized.
 - For invalid object values, `phase` is normalized to a supported phase, non-string text fields do not render as broken UI text, and invalid `updatedAt` does not break hydration.
 - The user can still start learning mode after compatibility handling.
@@ -382,7 +382,7 @@ Expected results:
 | Normal chat and existing input actions do not regress | TC-003, TC-004, TC-009, TC-012 | Includes drafts, attachments, mobile actions, and missing API key path. |
 | Slash command boundary prevents false triggers | TC-003 | Covers `/学习React` and `/learnPython`. |
 | Learning prompt coexists with global/MCP prompts and stops after exit | TC-010 | Covers prompt composition and cleanup. |
-| Old or abnormal learning data is compatible | TC-011 | Covers local and remote abnormal states. |
+| Old or abnormal learning data is compatible | TC-011 | Covers locally persisted abnormal states. |
 | Mobile status bar does not block input/actions | TC-009 | Covers responsive viewport verification. |
 
 PM sign-off checklist:
