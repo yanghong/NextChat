@@ -26,9 +26,10 @@ describe("chat session mask normalization", () => {
   test("migrate and remote loading normalize sessions", () => {
     const chat = source();
 
-    expect(chat).toContain("version: 3.6");
+    expect(chat).toContain("version: 3.7");
     expect(chat).toContain("normalizeSessions");
-    expect(chat).toContain("if (version < 3.6)");
+    expect(chat).toContain("if (version < 3.7)");
+    expect(chat).toContain("normalizeSessionLearning");
     expect(chat).toContain("newState.sessions = normalizeSessions");
     expect(chat).toContain("loadRemoteSessions");
   });

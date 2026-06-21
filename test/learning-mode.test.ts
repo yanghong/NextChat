@@ -4,6 +4,10 @@ import {
   createDefaultLearningMode,
   parseLearningCommand,
 } from "../app/utils/learning";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 describe("learning mode utilities", () => {
   test("parses Chinese learning start commands with strict boundaries", () => {
@@ -113,5 +117,32 @@ describe("learning mode utilities", () => {
     expect(prompt.match(/```/g)).toHaveLength(2);
     expect(prompt).not.toContain(JSON.stringify(initialIntent));
     expect(prompt).not.toContain(JSON.stringify(summary));
+  });
+});
+
+describe("learning mode chat store integration", () => {
+  test("chat sessions carry learning mode metadata", () => {
+    const source = read("app/store/chat.ts");
+
+    expect(source).toContain("LearningModeState");
+    expect(source).toContain("learning?: LearningModeState");
+    expect(source).toContain("normalizeSessionLearning");
+  });
+
+  test("chat store exposes learning mode state transitions", () => {
+    const source = read("app/store/chat.ts");
+
+    expect(source).toContain("startLearningMode(initialIntent");
+    expect(source).toContain("stopLearningMode()");
+    expect(source).toContain("updateLearningMode");
+    expect(source).toContain("createDefaultLearningMode");
+  });
+
+  test("learning mode prompt is appended to system prompts", () => {
+    const source = read("app/store/chat.ts");
+
+    expect(source).toContain("buildLearningSystemPrompt");
+    expect(source).toContain("session.learning?.enabled");
+    expect(source).toContain("[Learning Mode System Prompt]");
   });
 });

@@ -34,6 +34,11 @@ import {
 } from "../constant";
 import Locale, { getLang } from "../locales";
 import { prettyObject } from "../utils/format";
+import {
+  buildLearningSystemPrompt,
+  createDefaultLearningMode,
+  LearningModeState,
+} from "../utils/learning";
 import { createPersistStore } from "../utils/store";
 import { estimateTokenLength } from "../utils/token";
 import { ModelConfig, ModelType, useAppConfig } from "./config";
@@ -97,6 +102,7 @@ export interface ChatSession {
   clearContextIndex?: number;
 
   mask: Mask;
+  learning?: LearningModeState;
 }
 
 type ChatInputOptions = {
@@ -130,12 +136,30 @@ function normalizeSessionMask(session: ChatSession): ChatSession {
   return session;
 }
 
+function normalizeSessionLearning(session: ChatSession): ChatSession {
+  if (!session.learning) return session;
+
+  session.learning = {
+    enabled: Boolean(session.learning.enabled),
+    phase: session.learning.phase ?? "diagnosing",
+    initialIntent: session.learning.initialIntent ?? "",
+    summary: session.learning.summary ?? "",
+    updatedAt: session.learning.updatedAt ?? Date.now(),
+  };
+
+  return session;
+}
+
+function normalizeSession(session: ChatSession): ChatSession {
+  return normalizeSessionLearning(normalizeSessionMask(session));
+}
+
 function normalizeSessions(sessions: ChatSession[]): ChatSession[] {
-  return sessions.map((session) => normalizeSessionMask(session));
+  return sessions.map((session) => normalizeSession(session));
 }
 
 function createEmptySession(): ChatSession {
-  return normalizeSessionMask({
+  return normalizeSession({
     id: nanoid(),
     topic: DEFAULT_TOPIC,
     memoryPrompt: "",
@@ -348,6 +372,42 @@ export const useChatStore = createPersistStore(
           currentSessionIndex: 0,
           sessions: [session].concat(state.sessions),
         }));
+        void get().saveRemoteSessions();
+      },
+
+      startLearningMode(initialIntent: string = "") {
+        const session = get().currentSession();
+        get().updateTargetSession(session, (session) => {
+          session.learning = createDefaultLearningMode(initialIntent);
+        });
+        void get().saveRemoteSessions();
+      },
+
+      stopLearningMode() {
+        const session = get().currentSession();
+        get().updateTargetSession(session, (session) => {
+          if (!session.learning) {
+            session.learning = {
+              enabled: false,
+              phase: "diagnosing",
+              updatedAt: Date.now(),
+            };
+            return;
+          }
+          session.learning.enabled = false;
+          session.learning.updatedAt = Date.now();
+        });
+        void get().saveRemoteSessions();
+      },
+
+      updateLearningMode(updater: (learning: LearningModeState) => void) {
+        const session = get().currentSession();
+        get().updateTargetSession(session, (session) => {
+          const learning = session.learning ?? createDefaultLearningMode();
+          updater(learning);
+          learning.updatedAt = Date.now();
+          session.learning = learning;
+        });
         void get().saveRemoteSessions();
       },
 
@@ -650,6 +710,28 @@ export const useChatStore = createPersistStore(
             systemPrompts.at(0)?.content ?? "empty",
           );
         }
+
+        const learningSystemPrompt = session.learning?.enabled
+          ? buildLearningSystemPrompt(session.learning)
+          : "";
+
+        if (learningSystemPrompt) {
+          if (systemPrompts.length > 0) {
+            systemPrompts[0].content = [
+              getMessageTextContent(systemPrompts[0]),
+              learningSystemPrompt,
+            ].join("\n\n");
+          } else {
+            systemPrompts = [
+              createMessage({
+                role: "system",
+                content: learningSystemPrompt,
+              }),
+            ];
+          }
+          console.log("[Learning Mode System Prompt]", learningSystemPrompt);
+        }
+
         const memoryPrompt = get().getMemoryPrompt();
         // long term memory
         const shouldSendLongTermMemory =
@@ -881,18 +963,16 @@ export const useChatStore = createPersistStore(
         localStorage.clear();
         location.reload();
       },
-          async loadRemoteSessions() {
-            try {
-              const remoteSessions = await fetchRemoteChatSessions();
-              if (!remoteSessions) return false;
+      async loadRemoteSessions() {
+        try {
+          const remoteSessions = await fetchRemoteChatSessions();
+          if (!remoteSessions) return false;
 
-              const sessions = normalizeSessions(
-                remoteSessions.length > 0
-                  ? remoteSessions
-                  : [createEmptySession()],
-              );
-              set(() => ({
-                sessions,
+          const sessions = normalizeSessions(
+            remoteSessions.length > 0 ? remoteSessions : [createEmptySession()],
+          );
+          set(() => ({
+            sessions,
             currentSessionIndex: 0,
             serverSessionsLoaded: true,
           }));
@@ -960,7 +1040,7 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.6,
+    version: 3.7,
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -1039,10 +1119,14 @@ export const useChatStore = createPersistStore(
           s.mask.modelConfig.webSearch = config.modelConfig.webSearch ?? true;
           s.mask.modelConfig.webSearchContextSize =
             config.modelConfig.webSearchContextSize ?? "low";
-          });
+        });
       }
 
       if (version < 3.6) {
+        newState.sessions = normalizeSessions(newState.sessions);
+      }
+
+      if (version < 3.7) {
         newState.sessions = normalizeSessions(newState.sessions);
       }
 
