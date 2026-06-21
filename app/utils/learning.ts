@@ -31,6 +31,10 @@ function matchCommand(input: string, commands: string[]) {
   return { matched: false, rest: "" };
 }
 
+function sanitizePromptContext(value: string) {
+  return value.replace(/`/g, "\u02cb");
+}
+
 export function parseLearningCommand(input: string): LearningCommand {
   const stop = matchCommand(input, STOP_COMMANDS);
   if (stop.matched) return { type: "stop" };
@@ -64,8 +68,8 @@ export function buildLearningSystemPrompt(state?: LearningModeState): string {
   const summary = state?.summary?.trim();
   const intent = state?.initialIntent?.trim();
   const userContext = {
-    initialIntent: intent || "",
-    summary: summary || "",
+    initialIntent: sanitizePromptContext(intent || ""),
+    summary: sanitizePromptContext(summary || ""),
   };
 
   return [
