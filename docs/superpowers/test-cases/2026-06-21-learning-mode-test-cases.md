@@ -30,8 +30,8 @@ Out of scope:
 | --- | --- | --- |
 | Slash entry | `/学习`, `/learn`, `/study` start learning mode when followed by whitespace or end of input | TC-001, TC-002 |
 | Slash boundaries | Similar strings without required boundary do not trigger learning mode | TC-003 |
-| Toolbar button | Empty input is prefilled with localized start command; non-empty draft is preserved | TC-004 |
-| Initial model message | `/学习 React` starts learning and sends converted learning-start message, not raw slash command | TC-002 |
+| Toolbar button | Empty input is prefilled with localized start command; submitting it starts learning; non-empty draft is preserved | TC-004 |
+| Initial model message | `/学习 React`, `/learn React`, and `/study React` start learning and send converted learning-start messages, not raw slash commands | TC-002 |
 | Diagnostic flow | AI asks multi-turn questions for goal, level, time, and rhythm instead of showing a fixed form | TC-005 |
 | Plan generation | AI generates goal breakdown, staged plan, daily task, and continued guidance | TC-006 |
 | Session state | Learning state persists in the current chat session and does not leak to other sessions | TC-007 |
@@ -42,6 +42,22 @@ Out of scope:
 | Error path | API key missing follows existing error path and preserves learning state/draft | TC-012 |
 | Mobile regression | Status bar does not cover input or actions on mobile | TC-009 |
 | Normal chat regression | Existing chat, send, attachment, and command behavior continue to work | TC-003, TC-012 |
+
+## Execution Strategy
+
+Use automated tests for deterministic behavior:
+- Slash parsing and boundary behavior.
+- Learning start/stop state updates.
+- Converted learning-start message creation.
+- Prompt injection and cleanup.
+- Persisted session normalization for missing, old, and malformed `learning` data.
+
+Use manual testing for product experience:
+- Whether the assistant asks diagnostic questions instead of showing a fixed form.
+- Whether the generated plan is useful enough for a learner.
+- Whether localized copy is understandable.
+- Whether mobile layout has no visual overlap after real rendering.
+- Whether network payloads match the expected request shape in the running app.
 
 ## Manual Test Cases
 
@@ -82,12 +98,13 @@ Steps:
 1. Type `/学习 React` in the input.
 2. Submit the message.
 3. Inspect the user-visible conversation and the outgoing model request payload.
-4. Continue one turn by answering a diagnostic question.
+4. Repeat in new sessions with `/learn React` and `/study React`.
+5. Continue one turn by answering a diagnostic question.
 
 Expected results:
 - Learning mode starts immediately.
 - The request sent to the model uses a converted learning-start message that includes React as the learning target.
-- The original `/学习 React` command is not sent as a normal user message.
+- The original `/学习 React`, `/learn React`, or `/study React` command is not sent as a normal user message.
 - The assistant asks diagnostic follow-up questions about React learning needs, current level, available time, and rhythm.
 - The session remains in learning mode after the first reply.
 
@@ -127,17 +144,21 @@ Steps:
 1. Ensure the input box is empty.
 2. Click the learning button.
 3. Observe the input content.
-4. Clear the input.
-5. Type a draft such as `I want to ask about hooks`.
-6. Click the learning button again.
+4. Submit the prefilled command.
+5. Observe the chat UI and first model request.
+6. Exit learning mode.
+7. Type a draft such as `I want to ask about hooks`.
+8. Click the learning button again.
 
 Expected results:
 - With empty input, the button pre-fills the localized learning start command.
 - In Chinese locale, the prefilled command is localized, for example `/学习`.
 - In English locale, the prefilled command is localized, for example `/learn`.
+- Submitting the prefilled command starts learning mode, shows the learning status bar, and begins diagnostic guidance.
+- The prefilled command is not sent as a normal chat message.
 - With non-empty input, the existing draft is not overwritten.
 - Cursor focus remains in or returns to the input for continued editing.
-- No message is sent until the user submits.
+- No message is sent merely by clicking the toolbar button.
 
 ### TC-005 - Diagnostic Multi-Turn Learning Intake
 
@@ -157,17 +178,22 @@ Steps:
 
 Expected results:
 - The assistant does not present a fixed form requiring manual fields like current level or daily time.
-- The assistant asks natural multi-turn diagnostic questions.
+- The assistant asks conversational diagnostic questions, with no more than three questions in a single assistant turn.
 - Across turns, the assistant gathers learning goal, current level, available time, and study rhythm.
 - The assistant uses prior answers in follow-up questions and does not repeatedly ask for already supplied information unless clarification is needed.
 - The learning status bar remains visible throughout.
+
+Minimum pass criteria:
+- At least two assistant turns contain diagnostic questions before a complete plan is produced, unless the user already supplied goal, level, time, and rhythm in one answer.
+- The assistant explicitly references at least two supplied facts, such as `basic Python`, `30 minutes on weekdays`, or `portfolio project in two months`.
+- The assistant does not ask the user to fill a table, settings panel, or fixed field list for current level and study time.
 
 ### TC-006 - Plan Generation And Continue Learning
 
 Priority: P0
 
 Preconditions:
-- A learning-mode session has completed enough diagnostic intake to generate a plan.
+- A learning-mode session has collected at least learning goal, current level, available time, and target horizon, or the assistant has explicitly said it has enough context to plan.
 
 Steps:
 1. Ask the assistant to generate the learning plan, or answer the assistant's final diagnostic question.
@@ -183,6 +209,11 @@ Expected results:
 - The assistant continues guiding the user through the task rather than ending at the plan.
 - Follow-up turns use the existing plan and learning context from the current session.
 - No fixed intake form appears at any point.
+
+Minimum pass criteria:
+- The plan includes at least three sections or bullets that map to goal, current level, suggested rhythm, staged route, and next task.
+- Today's task is concrete enough to start immediately and includes an exercise, reading target, or practice prompt.
+- After `continue` or `继续`, the assistant references the plan or current task and gives the next learning action rather than restarting intake.
 
 ### TC-007 - Learning State Persists Per Chat Session
 
@@ -214,11 +245,12 @@ Priority: P0
 
 Preconditions:
 - Open a chat session currently in learning mode.
-- Add text to the input draft and attach at least one file or image if attachments are supported.
+- Attach at least one file or image if attachments are supported.
+- If the app supports draft restoration, prepare any non-command draft in a separate check; this case verifies the exit command input itself and current attachments are cleared.
 - Network panel is open.
 
 Steps:
-1. Replace the input with `/退出学习`.
+1. Type `/退出学习` in the input.
 2. Submit the command.
 3. Observe UI state and network activity.
 4. Start learning mode again.
@@ -228,7 +260,7 @@ Expected results:
 - Learning mode exits immediately.
 - No model request is made for the exit command.
 - The learning status bar disappears.
-- Current input is cleared.
+- The exit command input is cleared.
 - Current attachments are cleared.
 - The exit command is not sent or displayed as a normal user chat message.
 - Subsequent normal messages do not include the learning system prompt.
@@ -270,16 +302,16 @@ Preconditions:
 Steps:
 1. Start learning mode with `/learn TypeScript`.
 2. Send one diagnostic answer.
-3. Inspect the outgoing request messages or prompt payload.
+3. Inspect the outgoing request messages or prompt payload for the current model provider.
 4. Exit learning mode.
 5. Send a normal chat message and inspect its request payload.
 
 Expected results:
-- During learning mode, the learning system prompt is injected.
-- Existing global system prompt content remains present.
-- Existing MCP system prompt content remains present when MCP is enabled.
-- Prompt ordering and composition do not remove or overwrite existing prompts.
-- After exit, the learning prompt is no longer injected.
+- During learning mode, at least one `system` role message contains the learning mentor guidance text, including the instruction that the assistant should diagnose goal, current level, constraints, and learning rhythm.
+- Existing global system prompt content remains present in a `system` message. It may be in the same system message as the learning prompt or in another system message.
+- Existing MCP system prompt content remains present when MCP is enabled. It may be in the same system message as the global prompt or in another system message.
+- Prompt composition does not drop the global prompt, MCP prompt, user message, or prior chat context.
+- After exit, no `system` message contains the learning mentor guidance text or the serialized learning context block.
 - Global and MCP prompts continue to behave as they did before learning mode.
 
 ### TC-011 - Old, Missing, Or Abnormal Learning Data Compatibility
@@ -287,23 +319,26 @@ Expected results:
 Priority: P0
 
 Preconditions:
-- Tester can edit local persisted session data or use a fixture/build with legacy session data.
-- Keep a backup of any manually edited local storage or indexed DB data before testing.
+- Tester can edit browser storage in devtools.
+- Chat state is stored under key `chat-next-web-store` in IndexedDB through `idb-keyval`, with localStorage fallback under the same key.
+- Keep a backup of any manually edited storage value before testing.
 
 Steps:
-1. Load a session with no `learning` data field.
-2. Verify the app opens and the session can chat normally.
-3. Load or edit a session with an old learning data shape, such as a boolean flag only.
-4. Refresh and reopen the session.
-5. Load or simulate abnormal remote learning state, such as `null`, unexpected strings, missing nested fields, or invalid enum values.
-6. Refresh and reopen the app.
-7. Try starting and exiting learning mode from the affected session.
+1. Open devtools Application storage and locate `chat-next-web-store` in IndexedDB or localStorage.
+2. Back up the full JSON value.
+3. Edit one session so the `learning` field is absent, then refresh and reopen the app.
+4. Restore the backup, then edit one session so `learning` is an old or invalid shape, for example `true`.
+5. Refresh and reopen the app.
+6. Restore the backup, then edit one session so `learning` is an object with invalid nested values, for example `{ "enabled": true, "phase": "unknown", "initialIntent": 123, "summary": null, "updatedAt": "bad-date" }`.
+7. Refresh and reopen the app.
+8. Try starting and exiting learning mode from the affected session.
 
 Expected results:
 - The app does not crash for missing learning data.
 - The app does not crash for old learning data shape.
 - The app does not crash for abnormal remote learning state.
 - Invalid or unknown learning data is safely ignored, migrated, or normalized.
+- For invalid object values, `phase` is normalized to a supported phase, non-string text fields do not render as broken UI text, and invalid `updatedAt` does not break hydration.
 - The user can still start learning mode after compatibility handling.
 - Existing chat history is not lost.
 
@@ -337,8 +372,8 @@ Expected results:
 
 | Product Requirement | Covered By | Review Notes |
 | --- | --- | --- |
-| Entry can be `/学习`, `/learn`, or toolbar learning button | TC-001, TC-004 | Also covers `/study` implementation detail. |
-| Entry supports topic text such as `/学习 React` | TC-002 | Verifies converted learning-start message and no raw slash leakage. |
+| Entry can be `/学习`, `/learn`, `/study`, or toolbar learning button | TC-001, TC-004 | Covers localized toolbar prefill and submit flow. |
+| Entry supports topic text such as `/学习 React`, `/learn React`, or `/study React` | TC-002 | Verifies converted learning-start message and no raw slash leakage. |
 | No fixed form for current level or daily time | TC-005, TC-006 | Verifies diagnostic conversational intake. |
 | AI understands goal, level, time, and rhythm through multi-turn questions | TC-005 | Covers partial answers and follow-up behavior. |
 | AI generates goal breakdown, staged plan, today's task, and continuous guidance | TC-006 | Covers plan creation and continued learning. |
@@ -373,20 +408,32 @@ Environment:
 - Model/provider:
 - API key state:
 
-| Test Case | Priority | Result | Defect ID | Notes |
-| --- | --- | --- | --- | --- |
-| TC-001 | P0 | Not Run |  |  |
-| TC-002 | P0 | Not Run |  |  |
-| TC-003 | P0 | Not Run |  |  |
-| TC-004 | P1 | Not Run |  |  |
-| TC-005 | P0 | Not Run |  |  |
-| TC-006 | P0 | Not Run |  |  |
-| TC-007 | P0 | Not Run |  |  |
-| TC-008 | P0 | Not Run |  |  |
-| TC-009 | P1 | Not Run |  |  |
-| TC-010 | P1 | Not Run |  |  |
-| TC-011 | P0 | Not Run |  |  |
-| TC-012 | P1 | Not Run |  |  |
+Result values:
+- Pass
+- Fail
+- Blocked
+- Not Run
+
+| Test Case | Priority | Result | Defect ID | Evidence | Blocked Reason | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| TC-001 | P0 | Not Run |  |  |  |  |
+| TC-002 | P0 | Not Run |  |  |  |  |
+| TC-003 | P0 | Not Run |  |  |  |  |
+| TC-004 | P1 | Not Run |  |  |  |  |
+| TC-005 | P0 | Not Run |  |  |  |  |
+| TC-006 | P0 | Not Run |  |  |  |  |
+| TC-007 | P0 | Not Run |  |  |  |  |
+| TC-008 | P0 | Not Run |  |  |  |  |
+| TC-009 | P1 | Not Run |  |  |  |  |
+| TC-010 | P1 | Not Run |  |  |  |  |
+| TC-011 | P0 | Not Run |  |  |  |  |
+| TC-012 | P1 | Not Run |  |  |  |  |
+
+Evidence guidance:
+- Attach screenshots for UI and mobile layout checks.
+- Attach HAR, console log excerpt, or redacted request payload for network payload checks.
+- Attach before/after storage JSON snippets for compatibility checks.
+- Link defect records for every failed or blocked P0 case.
 
 Summary:
 - Passed:
@@ -400,4 +447,3 @@ Release recommendation:
 - [ ] Pass
 - [ ] Pass with known issues
 - [ ] Block release
-
