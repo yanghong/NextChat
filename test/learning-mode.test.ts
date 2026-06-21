@@ -8,6 +8,7 @@ import { readFileSync } from "fs";
 import { jest } from "@jest/globals";
 import { join } from "path";
 import { useChatStore } from "../app/store/chat";
+import { handleLearningCommandSubmit } from "../app/components/chat-learning-submit";
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
@@ -301,12 +302,17 @@ describe("learning mode chat UI wiring", () => {
   });
 
   test("chat submit intercepts learning commands before normal sending", () => {
-    const source = read("app/components/chat.tsx");
+    const chatSource = read("app/components/chat.tsx");
+    const helperSource = read("app/components/chat-learning-submit.ts");
 
-    expect(source).toContain("parseLearningCommand(userInput)");
-    expect(source).toContain("buildLearningLaunchMessage");
-    expect(source).toContain("chatStore.startLearningMode");
-    expect(source).toContain("chatStore.stopLearningMode");
+    expect(chatSource).toContain("handleLearningCommandSubmit(userInput");
+    expect(
+      chatSource.indexOf("handleLearningCommandSubmit(userInput"),
+    ).toBeLessThan(chatSource.indexOf("chatCommands.match(userInput)"));
+    expect(helperSource).toContain("parseLearningCommand(userInput)");
+    expect(helperSource).toContain("buildLearningLaunchMessage");
+    expect(chatSource).toContain("chatStore.startLearningMode");
+    expect(chatSource).toContain("chatStore.stopLearningMode");
   });
 
   test("chat shows learning mode status and exit control", () => {
@@ -315,5 +321,76 @@ describe("learning mode chat UI wiring", () => {
     expect(source).toContain('styles["learning-mode-bar"]');
     expect(source).toContain("Locale.Chat.Learning.Status");
     expect(source).toContain("Locale.Chat.Learning.Exit");
+  });
+});
+
+describe("learning mode chat submit behavior", () => {
+  const createHandlers = () => ({
+    startLearningMode: jest.fn(),
+    stopLearningMode: jest.fn(),
+    sendLearningMessage: jest.fn(() => Promise.resolve()),
+    onStart: jest.fn(),
+    onStop: jest.fn(),
+  });
+
+  test("start command stores intent and sends transformed launch message", () => {
+    const handlers = createHandlers();
+
+    const result = handleLearningCommandSubmit("/学习 React", handlers);
+
+    expect(result.handled).toBe(true);
+    expect(handlers.startLearningMode).toHaveBeenCalledWith("React");
+    expect(handlers.sendLearningMessage).toHaveBeenCalledWith(
+      buildLearningLaunchMessage("React"),
+    );
+    expect(handlers.sendLearningMessage).not.toHaveBeenCalledWith(
+      "/学习 React",
+    );
+    expect(handlers.onStart).toHaveBeenCalledWith("React");
+    expect(handlers.stopLearningMode).not.toHaveBeenCalled();
+  });
+
+  test("stop command exits learning mode without sending to model", () => {
+    const handlers = createHandlers();
+
+    const result = handleLearningCommandSubmit("/退出学习", handlers);
+
+    expect(result.handled).toBe(true);
+    expect(result.pending).toBeUndefined();
+    expect(handlers.stopLearningMode).toHaveBeenCalledTimes(1);
+    expect(handlers.onStop).toHaveBeenCalledTimes(1);
+    expect(handlers.sendLearningMessage).not.toHaveBeenCalled();
+    expect(handlers.startLearningMode).not.toHaveBeenCalled();
+  });
+
+  test("ordinary slash commands are not handled as learning commands", () => {
+    const handlers = createHandlers();
+
+    const result = handleLearningCommandSubmit("/help", handlers);
+
+    expect(result.handled).toBe(false);
+    expect(result.pending).toBeUndefined();
+    expect(handlers.startLearningMode).not.toHaveBeenCalled();
+    expect(handlers.stopLearningMode).not.toHaveBeenCalled();
+    expect(handlers.sendLearningMessage).not.toHaveBeenCalled();
+  });
+
+  test("start command exposes the send promise for reliable loading cleanup", async () => {
+    const expectedError = new Error("network failed");
+    const handlers = {
+      ...createHandlers(),
+      sendLearningMessage: jest.fn(() => Promise.reject(expectedError)),
+    };
+
+    const result = handleLearningCommandSubmit("/learn TypeScript", handlers);
+
+    expect(result.handled).toBe(true);
+    await expect(result.pending).rejects.toBe(expectedError);
+  });
+
+  test("learning action source preserves non-empty drafts", () => {
+    const source = read("app/components/chat.tsx");
+
+    expect(source).toContain("if (userInput.trim() !== \"\")");
   });
 });

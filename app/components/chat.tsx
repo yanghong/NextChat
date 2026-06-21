@@ -72,10 +72,7 @@ import {
 } from "../utils";
 
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
-import {
-  buildLearningLaunchMessage,
-  parseLearningCommand,
-} from "../utils/learning";
+import { handleLearningCommandSubmit } from "./chat-learning-submit";
 
 import dynamic from "next/dynamic";
 
@@ -1182,27 +1179,21 @@ function _Chat() {
       inputRef.current?.focus();
       return;
     }
+    if (userInput.trim() !== "") {
+      inputRef.current?.focus();
+      return;
+    }
     setUserInput("/学习 ");
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
-    const learningCommand = parseLearningCommand(userInput);
-    if (learningCommand.type === "stop") {
-      chatStore.stopLearningMode();
-      setUserInput("");
-      showToast(Locale.Chat.Learning.Stopped);
-      return;
-    }
-
-    if (learningCommand.type === "start") {
-      const intent = learningCommand.intent;
-      const launchMessage = buildLearningLaunchMessage(intent);
-      chatStore.startLearningMode(intent);
-      setIsLoading(true);
-      chatStore
-        .onUserInput(launchMessage, [], false, {
+    const learningResult = handleLearningCommandSubmit(userInput, {
+      startLearningMode: (intent) => chatStore.startLearningMode(intent),
+      stopLearningMode: () => chatStore.stopLearningMode(),
+      sendLearningMessage: (launchMessage) =>
+        chatStore.onUserInput(launchMessage, [], false, {
           onError(error) {
             if (!isUserApiKeyRequiredError(error)) return false;
             setShowUserApiKeyModal(true);
@@ -1211,14 +1202,27 @@ function _Chat() {
             showToast(USER_API_KEY_REQUIRED_MESSAGE);
             return true;
           },
-        })
-        .finally(() => setIsLoading(false))
-        .catch(() => undefined);
-      chatStore.setLastInput(userInput);
-      setAttachImages([]);
-      setUserInput("");
-      if (!isMobileScreen) inputRef.current?.focus();
-      setAutoScroll(true);
+        }),
+      onStart: () => {
+        setIsLoading(true);
+        chatStore.setLastInput(userInput);
+        setAttachImages([]);
+        setUserInput("");
+        if (!isMobileScreen) inputRef.current?.focus();
+        setAutoScroll(true);
+      },
+      onStop: () => {
+        setUserInput("");
+        setAttachImages([]);
+        showToast(Locale.Chat.Learning.Stopped);
+      },
+    });
+    if (learningResult.handled) {
+      learningResult.pending
+        ?.finally(() => setIsLoading(false))
+        .catch(() => {
+          // Request errors are recorded by the chat store callbacks.
+        });
       return;
     }
 
