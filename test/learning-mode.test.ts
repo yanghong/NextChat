@@ -241,4 +241,52 @@ describe("learning mode chat store integration", () => {
       logSpy.mockRestore();
     }
   });
+
+  test("remote malformed learning state is normalized before prompt injection", async () => {
+    const store = useChatStore.getState();
+    const malformedSession = {
+      ...store.currentSession(),
+      learning: {
+        enabled: true,
+        phase: "invalid-phase",
+        initialIntent: 123,
+        summary: {},
+        updatedAt: "bad",
+      },
+    };
+    const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ sessions: [malformedSession] }),
+      headers: new Headers(),
+      redirected: false,
+      statusText: "OK",
+      type: "basic",
+      url: "",
+      body: null,
+      bodyUsed: false,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      blob: () => Promise.resolve(new Blob()),
+      formData: () => Promise.resolve(new FormData()),
+      text: () => Promise.resolve(""),
+    } as Response);
+
+    try {
+      await store.loadRemoteSessions();
+
+      const learning = useChatStore.getState().currentSession().learning;
+      expect(learning).toMatchObject({
+        enabled: true,
+        phase: "diagnosing",
+        initialIntent: "",
+        summary: "",
+      });
+      expect(Number.isFinite(learning?.updatedAt)).toBe(true);
+      await expect(
+        useChatStore.getState().getMessagesWithMemory(),
+      ).resolves.toEqual(expect.any(Array));
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
 });

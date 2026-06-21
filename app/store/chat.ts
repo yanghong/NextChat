@@ -126,6 +126,16 @@ function isLearningPhase(phase: unknown): phase is LearningModeState["phase"] {
   return LEARNING_PHASES.includes(phase as LearningModeState["phase"]);
 }
 
+function safeLearningText(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function safeLearningUpdatedAt(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : Date.now();
+}
+
 function normalizeSessionMask(session: ChatSession): ChatSession {
   const fallbackMask = createEmptyMask();
   const modelConfig = session.mask?.modelConfig;
@@ -155,9 +165,9 @@ function normalizeSessionLearning(session: ChatSession): ChatSession {
     phase: isLearningPhase(session.learning.phase)
       ? session.learning.phase
       : "diagnosing",
-    initialIntent: session.learning.initialIntent ?? "",
-    summary: session.learning.summary ?? "",
-    updatedAt: session.learning.updatedAt ?? Date.now(),
+    initialIntent: safeLearningText(session.learning.initialIntent),
+    summary: safeLearningText(session.learning.summary),
+    updatedAt: safeLearningUpdatedAt(session.learning.updatedAt),
   };
 
   return session;
