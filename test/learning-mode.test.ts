@@ -36,6 +36,21 @@ describe("learning mode utilities", () => {
     });
   });
 
+  test("parses learning start commands with non-space whitespace boundaries", () => {
+    expect(parseLearningCommand("/学习\tReact")).toEqual({
+      type: "start",
+      intent: "React",
+    });
+    expect(parseLearningCommand("/learn\tPython")).toEqual({
+      type: "start",
+      intent: "Python",
+    });
+    expect(parseLearningCommand("/study\nSQL")).toEqual({
+      type: "start",
+      intent: "SQL",
+    });
+  });
+
   test("parses learning stop commands", () => {
     expect(parseLearningCommand("/退出学习")).toEqual({ type: "stop" });
     expect(parseLearningCommand("/exit-learn")).toEqual({ type: "stop" });

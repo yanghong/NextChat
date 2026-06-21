@@ -24,7 +24,7 @@ function matchCommand(input: string, commands: string[]) {
   const trimmed = input.trim();
   for (const command of commands) {
     if (trimmed === command) return { matched: true, rest: "" };
-    if (trimmed.startsWith(command + " ")) {
+    if (trimmed.startsWith(command) && /\s/.test(trimmed[command.length])) {
       return { matched: true, rest: trimmed.slice(command.length).trim() };
     }
   }
