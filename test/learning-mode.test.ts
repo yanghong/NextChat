@@ -5,6 +5,7 @@ import {
   parseLearningCommand,
 } from "../app/utils/learning";
 import { readFileSync } from "fs";
+import { jest } from "@jest/globals";
 import { join } from "path";
 import { useChatStore } from "../app/store/chat";
 
@@ -148,7 +149,6 @@ describe("learning mode chat store integration", () => {
 
     expect(source).toContain("buildLearningSystemPrompt");
     expect(source).toContain("session.learning?.enabled");
-    expect(source).toContain("[Learning Mode System Prompt]");
   });
 
   test("startLearningMode enables learning and stores the initial intent", () => {
@@ -217,5 +217,28 @@ describe("learning mode chat store integration", () => {
     expect(content.indexOf("You are ChatGPT")).toBeLessThan(
       content.indexOf("你是学习导师"),
     );
+  });
+
+  test("getMessagesWithMemory does not log learning prompt context by default", async () => {
+    const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    const store = useChatStore.getState();
+    const session = store.currentSession();
+
+    store.updateTargetSession(session, (session) => {
+      session.mask.modelConfig.model = "gpt-image-2";
+      session.mask.modelConfig.enableInjectSystemPrompts = false;
+    });
+    store.startLearningMode("Private learning goal");
+
+    try {
+      await useChatStore.getState().getMessagesWithMemory();
+
+      expect(logSpy).not.toHaveBeenCalledWith(
+        "[Learning Mode System Prompt]",
+        expect.anything(),
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });

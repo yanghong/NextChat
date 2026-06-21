@@ -745,7 +745,6 @@ export const useChatStore = createPersistStore(
               }),
             ];
           }
-          console.log("[Learning Mode System Prompt]", learningSystemPrompt);
         }
 
         const memoryPrompt = get().getMemoryPrompt();
