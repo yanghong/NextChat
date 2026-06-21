@@ -96,6 +96,7 @@ const cn = {
     StartSpeak: "说话",
     StopSpeak: "停止",
     Learning: {
+      StartCommand: "/学习 ",
       Status: "学习模式中",
       Exit: "退出学习",
       Stopped: "已退出学习模式",

@@ -97,6 +97,7 @@ const en: LocaleType = {
     StartSpeak: "Start Speak",
     StopSpeak: "Stop Speak",
     Learning: {
+      StartCommand: "/learn ",
       Status: "Learning mode",
       Exit: "Exit",
       Stopped: "Exited learning mode",

@@ -295,10 +295,16 @@ describe("learning mode chat store integration", () => {
 describe("learning mode chat UI wiring", () => {
   test("chat input exposes a learning action", () => {
     const source = read("app/components/chat.tsx");
+    const cnSource = read("app/locales/cn.ts");
+    const enSource = read("app/locales/en.ts");
 
     expect(source).toContain("startLearningModeFromInput");
     expect(source).toContain("Locale.Chat.InputActions.Learning");
+    expect(source).toContain("Locale.Chat.Learning.StartCommand");
+    expect(source).not.toContain('setUserInput("/学习 ")');
     expect(source).toContain("onStartLearningMode");
+    expect(cnSource).toContain('StartCommand: "/学习 "');
+    expect(enSource).toContain('StartCommand: "/learn "');
   });
 
   test("chat submit intercepts learning commands before normal sending", () => {
@@ -321,6 +327,14 @@ describe("learning mode chat UI wiring", () => {
     expect(source).toContain('styles["learning-mode-bar"]');
     expect(source).toContain("Locale.Chat.Learning.Status");
     expect(source).toContain("Locale.Chat.Learning.Exit");
+  });
+
+  test("chat surfaces learning command setup failures", () => {
+    const source = read("app/components/chat.tsx");
+
+    expect(source).toContain('console.error("[Chat] learning command failed"');
+    expect(source).toContain("showToast((error as Error).message)");
+    expect(source).not.toContain("catch(() =>");
   });
 });
 

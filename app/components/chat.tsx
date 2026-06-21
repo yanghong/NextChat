@@ -1183,7 +1183,7 @@ function _Chat() {
       inputRef.current?.focus();
       return;
     }
-    setUserInput("/学习 ");
+    setUserInput(Locale.Chat.Learning.StartCommand);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -1220,8 +1220,9 @@ function _Chat() {
     if (learningResult.handled) {
       learningResult.pending
         ?.finally(() => setIsLoading(false))
-        .catch(() => {
-          // Request errors are recorded by the chat store callbacks.
+        .catch((error) => {
+          console.error("[Chat] learning command failed", error);
+          showToast((error as Error).message);
         });
       return;
     }
