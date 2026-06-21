@@ -82,6 +82,7 @@ const en: LocaleType = {
       Clear: "Clear Context",
       Settings: "Settings",
       UploadImage: "Upload Images",
+      Learning: "Learning",
     },
     Rename: "Rename Chat",
     Typing: "Typing…",
@@ -95,6 +96,12 @@ const en: LocaleType = {
     Send: "Send",
     StartSpeak: "Start Speak",
     StopSpeak: "Stop Speak",
+    Learning: {
+      Status: "Learning mode",
+      Exit: "Exit",
+      Stopped: "Exited learning mode",
+      Help: "Type /learn plus what you want to learn. I will ask questions first to understand your goal and level.",
+    },
     Config: {
       Reset: "Reset to Default",
       SaveAs: "Save as Mask",

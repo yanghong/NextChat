@@ -290,3 +290,30 @@ describe("learning mode chat store integration", () => {
     }
   });
 });
+
+describe("learning mode chat UI wiring", () => {
+  test("chat input exposes a learning action", () => {
+    const source = read("app/components/chat.tsx");
+
+    expect(source).toContain("startLearningModeFromInput");
+    expect(source).toContain("Locale.Chat.InputActions.Learning");
+    expect(source).toContain("onStartLearningMode");
+  });
+
+  test("chat submit intercepts learning commands before normal sending", () => {
+    const source = read("app/components/chat.tsx");
+
+    expect(source).toContain("parseLearningCommand(userInput)");
+    expect(source).toContain("buildLearningLaunchMessage");
+    expect(source).toContain("chatStore.startLearningMode");
+    expect(source).toContain("chatStore.stopLearningMode");
+  });
+
+  test("chat shows learning mode status and exit control", () => {
+    const source = read("app/components/chat.tsx");
+
+    expect(source).toContain('styles["learning-mode-bar"]');
+    expect(source).toContain("Locale.Chat.Learning.Status");
+    expect(source).toContain("Locale.Chat.Learning.Exit");
+  });
+});

@@ -640,6 +640,39 @@
   border: 1px solid var(--primary);
 }
 
+.learning-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border: var(--border-in-light);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--black);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.learning-mode-intent {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--black);
+  opacity: 0.75;
+}
+
+.learning-mode-exit {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .chat-input {
   height: 100%;
   width: 100%;

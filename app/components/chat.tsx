@@ -72,6 +72,10 @@ import {
 } from "../utils";
 
 import { uploadImage as uploadImageRemote } from "@/app/utils/chat";
+import {
+  buildLearningLaunchMessage,
+  parseLearningCommand,
+} from "../utils/learning";
 
 import dynamic from "next/dynamic";
 
@@ -534,6 +538,7 @@ export function ChatActions(props: {
   uploading: boolean;
   setShowShortcutKeyModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowChatSidePanel: React.Dispatch<React.SetStateAction<boolean>>;
+  onStartLearningMode: () => void;
 }) {
   const config = useAppConfig();
   const chatStore = useChatStore();
@@ -738,6 +743,11 @@ export function ChatActions(props: {
           onClick={() => setShowModelSelector(true)}
           text={currentModelName}
           icon={<RobotIcon />}
+        />
+        <ChatAction
+          onClick={props.onStartLearningMode}
+          text={Locale.Chat.InputActions.Learning}
+          icon={<BrainIcon />}
         />
 
         {showModelSelector && (
@@ -1167,8 +1177,51 @@ function _Chat() {
     setUserInput(text);
   };
 
+  const startLearningModeFromInput = () => {
+    if (session.learning?.enabled) {
+      inputRef.current?.focus();
+      return;
+    }
+    setUserInput("/学习 ");
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
+    const learningCommand = parseLearningCommand(userInput);
+    if (learningCommand.type === "stop") {
+      chatStore.stopLearningMode();
+      setUserInput("");
+      showToast(Locale.Chat.Learning.Stopped);
+      return;
+    }
+
+    if (learningCommand.type === "start") {
+      const intent = learningCommand.intent;
+      const launchMessage = buildLearningLaunchMessage(intent);
+      chatStore.startLearningMode(intent);
+      setIsLoading(true);
+      chatStore
+        .onUserInput(launchMessage, [], false, {
+          onError(error) {
+            if (!isUserApiKeyRequiredError(error)) return false;
+            setShowUserApiKeyModal(true);
+            setUserInput(userInput);
+            setAttachImages([]);
+            showToast(USER_API_KEY_REQUIRED_MESSAGE);
+            return true;
+          },
+        })
+        .finally(() => setIsLoading(false))
+        .catch(() => undefined);
+      chatStore.setLastInput(userInput);
+      setAttachImages([]);
+      setUserInput("");
+      if (!isMobileScreen) inputRef.current?.focus();
+      setAutoScroll(true);
+      return;
+    }
+
     const matchCommand = chatCommands.match(userInput);
     if (matchCommand.matched) {
       setUserInput("");
@@ -2083,7 +2136,28 @@ function _Chat() {
                 uploading={uploading}
                 setShowShortcutKeyModal={setShowShortcutKeyModal}
                 setShowChatSidePanel={setShowChatSidePanel}
+                onStartLearningMode={startLearningModeFromInput}
               />
+              {session.learning?.enabled && (
+                <div className={styles["learning-mode-bar"]}>
+                  <span>{Locale.Chat.Learning.Status}</span>
+                  {session.learning.initialIntent && (
+                    <span className={styles["learning-mode-intent"]}>
+                      {session.learning.initialIntent}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className={styles["learning-mode-exit"]}
+                    onClick={() => {
+                      chatStore.stopLearningMode();
+                      showToast(Locale.Chat.Learning.Stopped);
+                    }}
+                  >
+                    {Locale.Chat.Learning.Exit}
+                  </button>
+                </div>
+              )}
               <label
                 className={clsx(styles["chat-input-panel-inner"], {
                   [styles["chat-input-panel-inner-attach"]]:

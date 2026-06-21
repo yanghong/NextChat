@@ -81,6 +81,7 @@ const cn = {
       Clear: "清除聊天",
       Settings: "对话设置",
       UploadImage: "上传图片",
+      Learning: "学习",
     },
     Rename: "重命名对话",
     Typing: "正在输入…",
@@ -94,6 +95,12 @@ const cn = {
     Send: "发送",
     StartSpeak: "说话",
     StopSpeak: "停止",
+    Learning: {
+      Status: "学习模式中",
+      Exit: "退出学习",
+      Stopped: "已退出学习模式",
+      Help: "输入 /学习 加上你想学的内容，我会先通过提问了解你的目标和水平。",
+    },
     Config: {
       Reset: "清除记忆",
       SaveAs: "存为面具",
