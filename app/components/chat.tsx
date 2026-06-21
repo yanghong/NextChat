@@ -627,6 +627,28 @@ export function ChatActions(props: {
     [models],
   );
 
+  const getRestoredChatModel = () => {
+    const previousModel = previousChatModelRef.current;
+    if (
+      previousModel &&
+      models.some(
+        (m) =>
+          m.name === previousModel.model &&
+          m?.provider?.providerName === previousModel.providerName,
+      )
+    ) {
+      return previousModel;
+    }
+
+    return fallbackChatModel
+      ? {
+          model: fallbackChatModel.name as ModelType,
+          providerName: fallbackChatModel.provider
+            ?.providerName as ServiceProvider,
+        }
+      : null;
+  };
+
   const toggleImageGeneration = () => {
     if (!imageGenerationEnabled) {
       if (!isImageGenerationModel(currentModel)) {
@@ -646,22 +668,7 @@ export function ChatActions(props: {
       return;
     }
 
-    const previousModel = previousChatModelRef.current;
-    const nextModel =
-      previousModel &&
-      models.some(
-        (m) =>
-          m.name === previousModel.model &&
-          m?.provider?.providerName === previousModel.providerName,
-      )
-        ? previousModel
-        : fallbackChatModel
-        ? {
-            model: fallbackChatModel.name as ModelType,
-            providerName: fallbackChatModel.provider
-              ?.providerName as ServiceProvider,
-          }
-        : null;
+    const nextModel = getRestoredChatModel();
 
     if (!nextModel) {
       showToast("没有可用的聊天模型");
@@ -1134,6 +1141,19 @@ function _Chat() {
   const [attachImages, setAttachImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showUserApiKeyModal, setShowUserApiKeyModal] = useState(false);
+  const allModels = useAllModels();
+  const learningChatModel = useMemo(() => {
+    const models = allModels.filter((m) => m.available);
+    return (
+      models.find((m) => m.isDefault && !isImageGenerationModel(m.name)) ||
+      models.find(
+        (m) =>
+          !isImageGenerationModel(m.name) &&
+          m?.provider?.providerName === ServiceProvider.OpenAI,
+      ) ||
+      models.find((m) => !isImageGenerationModel(m.name))
+    );
+  }, [allModels]);
 
   // auto grow input
   const [inputRows, setInputRows] = useState(2);
@@ -1190,6 +1210,24 @@ function _Chat() {
   const doSubmit = (userInput: string) => {
     if (userInput.trim() === "" && isEmpty(attachImages)) return;
     const learningResult = handleLearningCommandSubmit(userInput, {
+      prepareStart: () => {
+        const currentSession = chatStore.currentSession();
+        const currentLearningModel = currentSession.mask.modelConfig.model;
+        if (!isImageGenerationModel(currentLearningModel)) return true;
+
+        if (!learningChatModel) {
+          showToast("没有可用的聊天模型");
+          return false;
+        }
+
+        chatStore.updateTargetSession(currentSession, (session) => {
+          session.mask.modelConfig.model = learningChatModel.name as ModelType;
+          session.mask.modelConfig.providerName = learningChatModel.provider
+            ?.providerName as ServiceProvider;
+          session.mask.syncGlobalConfig = false;
+        });
+        return true;
+      },
       startLearningMode: (intent) => chatStore.startLearningMode(intent),
       stopLearningMode: () => chatStore.stopLearningMode(),
       sendLearningMessage: (launchMessage) =>

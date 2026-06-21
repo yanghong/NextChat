@@ -61,6 +61,26 @@ type StateMerger = {
   [K in keyof AppState]: Merger<K>;
 };
 
+function getLearningUpdatedAt(session: ChatSession) {
+  const updatedAt = session.learning?.updatedAt;
+  return typeof updatedAt === "number" && Number.isFinite(updatedAt)
+    ? updatedAt
+    : 0;
+}
+
+function mergeLearningState(
+  localSession: ChatSession,
+  remoteSession: ChatSession,
+) {
+  if (!remoteSession.learning) return;
+  if (
+    !localSession.learning ||
+    getLearningUpdatedAt(remoteSession) >= getLearningUpdatedAt(localSession)
+  ) {
+    localSession.learning = { ...remoteSession.learning };
+  }
+}
+
 // we merge remote state to local state
 const MergeStates: StateMerger = {
   [StoreKey.Chat]: (localState, remoteState) => {
@@ -84,6 +104,7 @@ const MergeStates: StateMerger = {
             localSession.messages.push(m);
           }
         });
+        mergeLearningState(localSession, remoteSession);
 
         // sort local messages with date field in asc order
         localSession.messages.sort(

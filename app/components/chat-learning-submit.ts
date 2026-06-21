@@ -4,6 +4,7 @@ import {
 } from "../utils/learning";
 
 export type LearningCommandSubmitHandlers = {
+  prepareStart?: (intent: string) => boolean;
   startLearningMode: (intent: string) => void;
   stopLearningMode: () => void;
   sendLearningMessage: (message: string) => Promise<unknown>;
@@ -33,6 +34,9 @@ export function handleLearningCommandSubmit(
 
   const intent = learningCommand.intent;
   const launchMessage = buildLearningLaunchMessage(intent);
+  if (handlers.prepareStart && !handlers.prepareStart(intent)) {
+    return { handled: true };
+  }
   handlers.startLearningMode(intent);
   handlers.onStart?.(intent);
 

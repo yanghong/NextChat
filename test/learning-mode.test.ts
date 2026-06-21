@@ -336,6 +336,16 @@ describe("learning mode chat UI wiring", () => {
     expect(source).toContain("showToast((error as Error).message)");
     expect(source).not.toContain("catch(() =>");
   });
+
+  test("chat switches away from image models before starting learning mode", () => {
+    const source = read("app/components/chat.tsx");
+
+    expect(source).toContain("prepareStart");
+    expect(source).toContain("currentLearningModel");
+    expect(source).toContain("isImageGenerationModel(currentLearningModel)");
+    expect(source).toContain("learningChatModel");
+    expect(source).toContain("没有可用的聊天模型");
+  });
 });
 
 describe("learning mode chat submit behavior", () => {
@@ -362,6 +372,22 @@ describe("learning mode chat submit behavior", () => {
     );
     expect(handlers.onStart).toHaveBeenCalledWith("React");
     expect(handlers.stopLearningMode).not.toHaveBeenCalled();
+  });
+
+  test("start command can be blocked by startup preparation", () => {
+    const handlers = {
+      ...createHandlers(),
+      prepareStart: jest.fn(() => false),
+    };
+
+    const result = handleLearningCommandSubmit("/学习 React", handlers);
+
+    expect(result.handled).toBe(true);
+    expect(result.pending).toBeUndefined();
+    expect(handlers.prepareStart).toHaveBeenCalledWith("React");
+    expect(handlers.startLearningMode).not.toHaveBeenCalled();
+    expect(handlers.sendLearningMessage).not.toHaveBeenCalled();
+    expect(handlers.onStart).not.toHaveBeenCalled();
   });
 
   test("stop command exits learning mode without sending to model", () => {
