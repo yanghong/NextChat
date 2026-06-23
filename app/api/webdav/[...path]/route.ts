@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 import { STORAGE_KEY, internalAllowedWebDavEndpoints } from "../../../constant";
 import { getServerSideConfig } from "@/app/config/server";
 
@@ -124,15 +125,13 @@ async function handle(
   const targetUrl = targetPath;
 
   const method = proxy_method || req.method;
-  const shouldNotHaveBody = ["get", "head"].includes(
-    method?.toLowerCase() ?? "",
-  );
+  const requestBody = await getReusableRequestBody(req, method);
 
   const fetchOptions: RequestInit = {
     headers: {
       authorization: req.headers.get("authorization") ?? "",
     },
-    body: shouldNotHaveBody ? null : req.body,
+    body: requestBody,
     redirect: "manual",
     method,
     // @ts-ignore
@@ -142,7 +141,7 @@ async function handle(
   let fetchResult;
 
   try {
-    fetchResult = await fetch(targetUrl, fetchOptions);
+    fetchResult = await fetchWithNetworkRetry(targetUrl, () => fetchOptions);
   } finally {
     console.log(
       "[Any Proxy]",

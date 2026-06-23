@@ -8,6 +8,7 @@ import {
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 import { isModelNotavailableInServer } from "@/app/utils/model";
 import { getAccessToken } from "@/app/utils/baidu";
 
@@ -82,12 +83,13 @@ async function request(req: NextRequest) {
   );
   const fetchUrl = `${baseUrl}${path}?access_token=${access_token}`;
 
+  const requestBody = await getReusableRequestBody(req);
   const fetchOptions: RequestInit = {
     headers: {
       "Content-Type": "application/json",
     },
     method: req.method,
-    body: req.body,
+    body: requestBody,
     redirect: "manual",
     // @ts-ignore
     duplex: "half",
@@ -95,10 +97,9 @@ async function request(req: NextRequest) {
   };
 
   // #1815 try to refuse some request to some models
-  if (serverConfig.customModels && req.body) {
+  if (serverConfig.customModels && requestBody) {
     try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
+      const clonedBody = new TextDecoder().decode(requestBody);
 
       const jsonBody = JSON.parse(clonedBody) as { model?: string };
 
@@ -125,7 +126,7 @@ async function request(req: NextRequest) {
     }
   }
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
 
     // to prevent browser prompt for credentials
     const newHeaders = new Headers(res.headers);

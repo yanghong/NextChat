@@ -9,6 +9,7 @@ import {
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 import { isModelNotavailableInServer } from "@/app/utils/model";
 import { cloudflareAIGatewayUrl } from "@/app/utils/cloudflare";
 
@@ -93,6 +94,7 @@ async function request(req: NextRequest) {
   // try rebuild url, when using cloudflare ai gateway in server
   const fetchUrl = cloudflareAIGatewayUrl(`${baseUrl}${path}`);
 
+  const requestBody = await getReusableRequestBody(req);
   const fetchOptions: RequestInit = {
     headers: {
       "Content-Type": "application/json",
@@ -105,7 +107,7 @@ async function request(req: NextRequest) {
         Anthropic.Vision,
     },
     method: req.method,
-    body: req.body,
+    body: requestBody,
     redirect: "manual",
     // @ts-ignore
     duplex: "half",
@@ -113,10 +115,9 @@ async function request(req: NextRequest) {
   };
 
   // #1815 try to refuse some request to some models
-  if (serverConfig.customModels && req.body) {
+  if (serverConfig.customModels && requestBody) {
     try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
+      const clonedBody = new TextDecoder().decode(requestBody);
 
       const jsonBody = JSON.parse(clonedBody) as { model?: string };
 
@@ -144,7 +145,7 @@ async function request(req: NextRequest) {
   }
   // console.log("[Anthropic request]", fetchOptions.headers, req.method);
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
 
     // console.log(
     //   "[Anthropic response]",

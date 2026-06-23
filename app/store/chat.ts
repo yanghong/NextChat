@@ -303,9 +303,12 @@ async function getMcpSystemPrompt(): Promise<string> {
   return MCP_SYSTEM_TEMPLATE.replace("{{ MCP_TOOLS }}", toolsStr);
 }
 
+const DEFAULT_SESSION = createEmptySession();
+
 const DEFAULT_CHAT_STATE = {
-  sessions: [createEmptySession()],
+  sessions: [DEFAULT_SESSION],
   currentSessionIndex: 0,
+  currentSessionId: DEFAULT_SESSION.id as string | undefined,
   lastInput: "",
   serverSessionsLoaded: false,
 };
@@ -343,28 +346,37 @@ export const useChatStore = createPersistStore(
 
         set((state) => ({
           currentSessionIndex: 0,
+          currentSessionId: newSession.id,
           sessions: [newSession, ...state.sessions],
         }));
         void get().saveRemoteSessions();
       },
 
       clearSessions() {
+        const session = createEmptySession();
         set(() => ({
-          sessions: [createEmptySession()],
+          sessions: [session],
           currentSessionIndex: 0,
+          currentSessionId: session.id,
         }));
         void get().saveRemoteSessions();
       },
 
       selectSession(index: number) {
+        const sessions = get().sessions;
+        const selectedIndex = Math.min(sessions.length - 1, Math.max(0, index));
+        const selectedSession = sessions[selectedIndex];
         set({
-          currentSessionIndex: index,
+          currentSessionIndex: selectedIndex,
+          currentSessionId: selectedSession?.id,
         });
       },
 
       moveSession(from: number, to: number) {
         set((state) => {
           const { sessions, currentSessionIndex: oldIndex } = state;
+          const currentSessionId =
+            state.currentSessionId ?? sessions[oldIndex]?.id;
 
           // move the session
           const newSessions = [...sessions];
@@ -372,16 +384,14 @@ export const useChatStore = createPersistStore(
           newSessions.splice(from, 1);
           newSessions.splice(to, 0, session);
 
-          // modify current session id
-          let newIndex = oldIndex === from ? to : oldIndex;
-          if (oldIndex > from && oldIndex <= to) {
-            newIndex -= 1;
-          } else if (oldIndex < from && oldIndex >= to) {
-            newIndex += 1;
-          }
+          const newIndex = Math.max(
+            0,
+            newSessions.findIndex((session) => session.id === currentSessionId),
+          );
 
           return {
             currentSessionIndex: newIndex,
+            currentSessionId: newSessions[newIndex]?.id,
             sessions: newSessions,
           };
         });
@@ -393,6 +403,7 @@ export const useChatStore = createPersistStore(
 
         set((state) => ({
           currentSessionIndex: 0,
+          currentSessionId: session.id,
           sessions: [session].concat(state.sessions),
         }));
         void get().saveRemoteSessions();
@@ -453,25 +464,32 @@ export const useChatStore = createPersistStore(
         const sessions = get().sessions.slice();
         sessions.splice(index, 1);
 
-        const currentIndex = get().currentSessionIndex;
-        let nextIndex = Math.min(
-          currentIndex - Number(index < currentIndex),
-          sessions.length - 1,
-        );
+        const currentSession = get().currentSession();
+        const currentSessionId = currentSession?.id;
+        let nextIndex: number;
 
         if (deletingLastSession) {
           nextIndex = 0;
           sessions.push(createEmptySession());
+        } else if (deletedSession.id === currentSessionId) {
+          nextIndex = Math.min(index, sessions.length - 1);
+        } else {
+          nextIndex = Math.max(
+            0,
+            sessions.findIndex((session) => session.id === currentSessionId),
+          );
         }
 
         // for undo delete action
         const restoreState = {
           currentSessionIndex: get().currentSessionIndex,
+          currentSessionId: get().currentSessionId,
           sessions: get().sessions.slice(),
         };
 
         set(() => ({
           currentSessionIndex: nextIndex,
+          currentSessionId: sessions[nextIndex]?.id,
           sessions,
         }));
         void get().saveRemoteSessions();
@@ -490,15 +508,28 @@ export const useChatStore = createPersistStore(
       },
 
       currentSession() {
-        let index = get().currentSessionIndex;
         const sessions = get().sessions;
+        const currentSessionId = get().currentSessionId;
+        let index = currentSessionId
+          ? sessions.findIndex((session) => session.id === currentSessionId)
+          : -1;
 
         if (index < 0 || index >= sessions.length) {
+          index = get().currentSessionIndex;
           index = Math.min(sessions.length - 1, Math.max(0, index));
-          set(() => ({ currentSessionIndex: index }));
         }
 
         const session = sessions[index];
+        if (
+          session &&
+          (index !== get().currentSessionIndex ||
+            session.id !== get().currentSessionId)
+        ) {
+          set(() => ({
+            currentSessionIndex: index,
+            currentSessionId: session.id,
+          }));
+        }
 
         return session;
       },
@@ -999,6 +1030,7 @@ export const useChatStore = createPersistStore(
           set(() => ({
             sessions,
             currentSessionIndex: 0,
+            currentSessionId: sessions[0]?.id,
             serverSessionsLoaded: true,
           }));
 
@@ -1065,7 +1097,7 @@ export const useChatStore = createPersistStore(
   },
   {
     name: StoreKey.Chat,
-    version: 3.7,
+    version: 3.8,
     migrate(persistedState, version) {
       const state = persistedState as any;
       const newState = JSON.parse(
@@ -1155,12 +1187,25 @@ export const useChatStore = createPersistStore(
         newState.sessions = normalizeSessions(newState.sessions);
       }
 
+      if (version < 3.8) {
+        const currentSessionIndex = Math.min(
+          newState.sessions.length - 1,
+          Math.max(0, newState.currentSessionIndex),
+        );
+        newState.currentSessionIndex = currentSessionIndex;
+        newState.currentSessionId = newState.sessions[currentSessionIndex]?.id;
+      }
+
       return newState as any;
     },
     onRehydrateStorage() {
       return (state) => {
         if (!state?.sessions) return;
         state.sessions = normalizeSessions(state.sessions);
+        state.currentSessionId =
+          state.currentSessionId ??
+          state.sessions[state.currentSessionIndex]?.id ??
+          state.sessions[0]?.id;
       };
     },
   },

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 import { getServerSideConfig } from "../config/server";
 import { OPENAI_BASE_URL, ServiceProvider } from "../constant";
 import { cloudflareAIGatewayUrl } from "../utils/cloudflare";
@@ -90,6 +91,7 @@ export async function requestOpenai(req: NextRequest) {
 
   const fetchUrl = cloudflareAIGatewayUrl(`${baseUrl}/${path}`);
   console.log("fetchUrl", fetchUrl);
+  const requestBody = await getReusableRequestBody(req);
   const fetchOptions: RequestInit = {
     headers: {
       "Content-Type": "application/json",
@@ -100,7 +102,7 @@ export async function requestOpenai(req: NextRequest) {
       }),
     },
     method: req.method,
-    body: req.body,
+    body: requestBody,
     // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
     redirect: "manual",
     // @ts-ignore
@@ -109,10 +111,9 @@ export async function requestOpenai(req: NextRequest) {
   };
 
   // #1815 try to refuse gpt4 request
-  if (serverConfig.customModels && req.body) {
+  if (serverConfig.customModels && requestBody) {
     try {
-      const clonedBody = await req.text();
-      fetchOptions.body = clonedBody;
+      const clonedBody = new TextDecoder().decode(requestBody);
 
       const jsonBody = JSON.parse(clonedBody) as { model?: string };
 
@@ -144,7 +145,7 @@ export async function requestOpenai(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
 
     // Extract the OpenAI-Organization header from the response
     const openaiOrganizationHeader = res.headers.get("OpenAI-Organization");

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "./auth";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 import { getServerSideConfig } from "@/app/config/server";
 import { ApiPath, GEMINI_BASE_URL, ModelProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
@@ -97,6 +98,7 @@ async function request(req: NextRequest, apiKey: string) {
   }`;
 
   console.log("[Fetch Url] ", fetchUrl);
+  const requestBody = await getReusableRequestBody(req);
   const fetchOptions: RequestInit = {
     headers: {
       "Content-Type": "application/json",
@@ -106,7 +108,7 @@ async function request(req: NextRequest, apiKey: string) {
         (req.headers.get("Authorization") ?? "").replace("Bearer ", ""),
     },
     method: req.method,
-    body: req.body,
+    body: requestBody,
     // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
     redirect: "manual",
     // @ts-ignore
@@ -115,7 +117,7 @@ async function request(req: NextRequest, apiKey: string) {
   };
 
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
     // to prevent browser prompt for credentials
     const newHeaders = new Headers(res.headers);
     newHeaders.delete("www-authenticate");

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSideConfig } from "@/app/config/server";
 import { ModelProvider, STABILITY_BASE_URL } from "@/app/constant";
 import { auth } from "@/app/api/auth";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 
 export async function handle(
   req: NextRequest,
@@ -66,6 +67,7 @@ export async function handle(
 
   const fetchUrl = `${baseUrl}/${path}`;
   console.log("[Stability Url] ", fetchUrl);
+  const requestBody = await getReusableRequestBody(req);
   const fetchOptions: RequestInit = {
     headers: {
       "Content-Type": req.headers.get("Content-Type") || "multipart/form-data",
@@ -73,7 +75,7 @@ export async function handle(
       Authorization: `Bearer ${key}`,
     },
     method: req.method,
-    body: req.body,
+    body: requestBody,
     // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
     redirect: "manual",
     // @ts-ignore
@@ -82,7 +84,7 @@ export async function handle(
   };
 
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
     // to prevent browser prompt for credentials
     const newHeaders = new Headers(res.headers);
     newHeaders.delete("www-authenticate");

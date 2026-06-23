@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 import { getServerSideConfig } from "@/app/config/server";
 
 export async function handle(
@@ -34,22 +35,23 @@ export async function handle(
     }),
   );
   // if dalle3 use openai api key
-    const baseUrl = req.headers.get("x-base-url");
-    if (baseUrl?.includes("api.openai.com")) {
-      if (!serverConfig.apiKey) {
-        return NextResponse.json(
-          { error: "OpenAI API key not configured" },
-          { status: 500 },
-        );
-      }
-      headers.set("Authorization", `Bearer ${serverConfig.apiKey}`);
+  const baseUrl = req.headers.get("x-base-url");
+  if (baseUrl?.includes("api.openai.com")) {
+    if (!serverConfig.apiKey) {
+      return NextResponse.json(
+        { error: "OpenAI API key not configured" },
+        { status: 500 },
+      );
     }
+    headers.set("Authorization", `Bearer ${serverConfig.apiKey}`);
+  }
 
   const controller = new AbortController();
+  const requestBody = await getReusableRequestBody(req);
   const fetchOptions: RequestInit = {
     headers,
     method: req.method,
-    body: req.body,
+    body: requestBody,
     // to fix #2485: https://stackoverflow.com/questions/55920957/cloudflare-worker-typeerror-one-time-use-body
     redirect: "manual",
     // @ts-ignore
@@ -65,7 +67,7 @@ export async function handle(
   );
 
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
     // to prevent browser prompt for credentials
     const newHeaders = new Headers(res.headers);
     newHeaders.delete("www-authenticate");

@@ -3,6 +3,7 @@ import { TENCENT_BASE_URL, ModelProvider } from "@/app/constant";
 import { prettyObject } from "@/app/utils/format";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/api/auth";
+import { fetchWithNetworkRetry } from "@/app/api/retry";
 import { getHeader } from "@/app/utils/tencent";
 
 const serverConfig = getServerSideConfig();
@@ -98,7 +99,7 @@ async function request(req: NextRequest) {
   };
 
   try {
-    const res = await fetch(fetchUrl, fetchOptions);
+    const res = await fetchWithNetworkRetry(fetchUrl, () => fetchOptions);
 
     // to prevent browser prompt for credentials
     const newHeaders = new Headers(res.headers);

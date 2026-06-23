@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchWithNetworkRetry, getReusableRequestBody } from "@/app/api/retry";
 
 async function handle(
   req: NextRequest,
@@ -41,22 +42,23 @@ async function handle(
   const targetUrl = `${endpoint}/${params.action}/${params.key.join("/")}`;
 
   const method = req.method;
-  const shouldNotHaveBody = ["get", "head"].includes(
-    method?.toLowerCase() ?? "",
-  );
+  const requestBody = await getReusableRequestBody(req, method);
 
   const fetchOptions: RequestInit = {
     headers: {
       authorization: req.headers.get("authorization") ?? "",
     },
-    body: shouldNotHaveBody ? null : req.body,
+    body: requestBody,
     method,
     // @ts-ignore
     duplex: "half",
   };
 
   console.log("[Upstash Proxy]", targetUrl, fetchOptions);
-  const fetchResult = await fetch(targetUrl, fetchOptions);
+  const fetchResult = await fetchWithNetworkRetry(
+    targetUrl,
+    () => fetchOptions,
+  );
 
   console.log("[Any Proxy]", targetUrl, {
     status: fetchResult.status,
