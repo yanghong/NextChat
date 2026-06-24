@@ -1021,16 +1021,21 @@ export const useChatStore = createPersistStore(
       },
       async loadRemoteSessions() {
         try {
+          const currentSessionId = get().currentSession()?.id;
           const remoteSessions = await fetchRemoteChatSessions();
           if (!remoteSessions) return false;
 
           const sessions = normalizeSessions(
             remoteSessions.length > 0 ? remoteSessions : [createEmptySession()],
           );
+          const currentSessionIndex = Math.max(
+            0,
+            sessions.findIndex((session) => session.id === currentSessionId),
+          );
           set(() => ({
             sessions,
-            currentSessionIndex: 0,
-            currentSessionId: sessions[0]?.id,
+            currentSessionIndex,
+            currentSessionId: sessions[currentSessionIndex]?.id,
             serverSessionsLoaded: true,
           }));
 
